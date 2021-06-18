@@ -1,3 +1,6 @@
+// A replica of testcases/roundskipprevote.go
+// Should adapt to the Partitioner, Partition and Part interfaces defined in partition.go to make it easier to create different partition scenarios
+
 package roundskip
 
 import (
@@ -199,8 +202,10 @@ type RoundSkipPrevote struct {
 	faults          int
 	height          int
 	roundsToSkip    int
-	partitioner     *replicaPartitioner
-	ready           chan bool
+
+	// TODO: Should move to the `Partitioner` interface
+	partitioner *replicaPartitioner
+	ready       chan bool
 }
 
 func NewRoundSkipPrevote(height, roundsToSkip int) *RoundSkipPrevote {

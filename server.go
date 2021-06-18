@@ -7,7 +7,7 @@ import (
 	"syscall"
 
 	"github.com/ds-test-framework/scheduler/testing"
-	"github.com/ds-test-framework/tendermint-test/testcases"
+	"github.com/ds-test-framework/tendermint-test/testcases/roundskip"
 )
 
 func main() {
@@ -23,7 +23,10 @@ func main() {
 		},
 		[]testing.TestCase{
 			// testcases.NewDummtTestCase(),
-			testcases.NewRoundSkipPrevote(1, 2),
+			// Parition strategy is to choose h, F (|F| = f) and R (|R|  = 2f) at random in the beginning
+			// and to retain the same partition for further round skips
+			// testcases.NewRoundSkipPrevote(1, 2),
+			roundskip.NewRoundSkipBlockPart(1, 2),
 		},
 	)
 

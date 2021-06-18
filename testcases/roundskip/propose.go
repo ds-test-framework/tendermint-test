@@ -24,7 +24,7 @@ type RoundSkipBlockPart struct {
 	roundsToSkip int
 }
 
-func NewRoundSkipTest(height, roundsToSkip int) *RoundSkipBlockPart {
+func NewRoundSkipBlockPart(height, roundsToSkip int) *RoundSkipBlockPart {
 	return &RoundSkipBlockPart{
 		BaseTestCase: testing.NewBaseTestCase("RoundSkipBlockPart", 30*time.Second),
 		fPeers:       make(map[types.ReplicaID]int),

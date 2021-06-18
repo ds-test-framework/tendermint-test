@@ -60,6 +60,7 @@ func (r *roundCounter) Count(msg *util.TMessageWrapper, round int) {
 	}
 }
 
+// Returns true if f+1 replicas have moved to the next round
 func (r *roundCounter) Skipped(round int) bool {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
