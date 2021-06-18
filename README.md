@@ -7,7 +7,7 @@ Testing tendermint using the framework [Scheduler Test Server](https://github.co
 - [`server.go`](./server.go) instantiates a testing server and runs it.
 
 ## Development
-- Update the `ServerConfig` in `main.go` and run `go run main.go` to start the testing process. The `tendermint` cluster should be run separately and configured to talk to this testing server (the same as for scheduler)
+- Update the `ServerConfig` in `main.go` for the right address to run the server on and run `go run main.go` to start the testing process. The `tendermint` cluster should be run separately and configured to talk to this testing server (the same as for scheduler)
 
 ## Scenarios being tested
 ### RoundSkip using BlockParts
