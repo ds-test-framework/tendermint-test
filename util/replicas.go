@@ -61,6 +61,17 @@ func (r *ReplicaSet) Iter() []types.ReplicaID {
 	return result
 }
 
+func (r *ReplicaSet) String() string {
+	str := ""
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
+	for r := range r.replicas {
+		str += string(r) + ","
+	}
+	return str
+}
+
 // Should cache key instead of decoding everytime
 func GetPrivKey(r *types.Replica) (crypto.PrivKey, error) {
 	privKey, ok := r.Info["private_key"]

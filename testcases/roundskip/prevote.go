@@ -4,6 +4,7 @@
 package roundskip
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -79,57 +80,25 @@ func (r *roundCounter) Skipped(round int) bool {
 	return false
 }
 
-type partition struct {
-	honestDelayed types.ReplicaID  // 1 replica
-	faults        *util.ReplicaSet // f faulty replicas
-	rest          *util.ReplicaSet // 2f replicas we don't care about
-}
-
-func (p *partition) IsRest(id types.ReplicaID) bool {
-	return p.rest.Exists(id)
-}
-
-func (p *partition) IsFaulty(id types.ReplicaID) bool {
-	return p.faults.Exists(id)
-}
-
-func (p *partition) IsHonestDelayed(id types.ReplicaID) bool {
-	return p.honestDelayed == id
-}
-
-func (p *partition) String() string {
-	var str string
-	str = "HonestDelayed: " + string(p.honestDelayed)
-	str += "\nFaulty: "
-	for _, f := range p.faults.Iter() {
-		str += (string(f) + ",")
-	}
-	str += "\nRest: "
-	for _, r := range p.rest.Iter() {
-		str += (string(r) + ",")
-	}
-	return str
-}
-
-type replicaPartitioner struct {
+type staticPartitioner struct {
 	allReplicas  *types.ReplicaStore
 	mtx          *sync.Mutex
-	partitionMap map[int]*partition
+	partitionMap map[int]*Partition
 	faults       int
 	logger       *log.Logger
 }
 
-func newReplicaPartitioner(replicaStore *types.ReplicaStore, faults int, logger *log.Logger) *replicaPartitioner {
-	return &replicaPartitioner{
+func newStaticPartitioner(replicaStore *types.ReplicaStore, faults int, logger *log.Logger) *staticPartitioner {
+	return &staticPartitioner{
 		allReplicas:  replicaStore,
 		mtx:          new(sync.Mutex),
-		partitionMap: make(map[int]*partition),
+		partitionMap: make(map[int]*Partition),
 		faults:       faults,
 		logger:       logger,
 	}
 }
 
-func (p *replicaPartitioner) NewPartition(round int) {
+func (p *staticPartitioner) NewPartition(round int) {
 	// Strategy to choose the next partition comes here
 
 	p.mtx.Lock()
@@ -152,20 +121,28 @@ func (p *replicaPartitioner) NewPartition(round int) {
 		return
 	}
 
-	partition := &partition{
-		honestDelayed: "",
-		faults:        util.NewReplicaSet(),
-		rest:          util.NewReplicaSet(),
+	honestDelayed := &Part{
+		Label:      "honestDelayed",
+		ReplicaSet: util.NewReplicaSet(),
+	}
+	faulty := &Part{
+		Label:      "faulty",
+		ReplicaSet: util.NewReplicaSet(),
+	}
+	rest := &Part{
+		Label:      "rest",
+		ReplicaSet: util.NewReplicaSet(),
 	}
 	for _, r := range p.allReplicas.Iter() {
-		if partition.honestDelayed == "" {
-			partition.honestDelayed = r.ID
-		} else if partition.faults.Size() < p.faults {
-			partition.faults.Add(r.ID)
+		if honestDelayed.Size() == 0 {
+			honestDelayed.ReplicaSet.Add(r.ID)
+		} else if faulty.Size() < p.faults {
+			faulty.ReplicaSet.Add(r.ID)
 		} else {
-			partition.rest.Add(r.ID)
+			rest.ReplicaSet.Add(r.ID)
 		}
 	}
+	partition := NewPartition(honestDelayed, faulty, rest)
 	p.mtx.Lock()
 	p.partitionMap[round] = partition
 	p.mtx.Unlock()
@@ -175,14 +152,14 @@ func (p *replicaPartitioner) NewPartition(round int) {
 	}).Info("New partition")
 }
 
-func (p *replicaPartitioner) GetPartition(round int) (*partition, bool) {
+func (p *staticPartitioner) GetPartition(round int) (*Partition, bool) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	partition, ok := p.partitionMap[round]
 	return partition, ok
 }
 
-func (p *replicaPartitioner) GetReplicaInfo(id types.ReplicaID) *types.Replica {
+func (p *staticPartitioner) GetReplicaInfo(id types.ReplicaID) *types.Replica {
 	r, ok := p.allReplicas.GetReplica(id)
 	if !ok {
 		return nil
@@ -204,13 +181,13 @@ type RoundSkipPrevote struct {
 	roundsToSkip    int
 
 	// TODO: Should move to the `Partitioner` interface
-	partitioner *replicaPartitioner
+	partitioner Partitioner
 	ready       chan bool
 }
 
 func NewRoundSkipPrevote(height, roundsToSkip int) *RoundSkipPrevote {
 	return &RoundSkipPrevote{
-		BaseTestCase:    *testing.NewBaseTestCase("RoundSkipPrevote", 20*time.Second),
+		BaseTestCase:    *testing.NewBaseTestCase("RoundSkipPrevote", 40*time.Second),
 		height:          height,
 		roundsToSkip:    roundsToSkip,
 		curRound:        0,
@@ -226,7 +203,7 @@ func (r *RoundSkipPrevote) Initialize(replicaStore *types.ReplicaStore, logger *
 
 	r.BaseTestCase.Initialize(replicaStore, logger)
 	r.faults = faults
-	r.partitioner = newReplicaPartitioner(replicaStore, faults, logger)
+	r.partitioner = newStaticPartitioner(replicaStore, faults, logger)
 	r.partitioner.NewPartition(r.curRound)
 	r.roundCounter = newRoundCounter(replicaStore, faults)
 	close(r.ready)
@@ -271,7 +248,7 @@ func (r *RoundSkipPrevote) HandleMessage(msg *types.Message) (bool, []*types.Mes
 		"msg":  tMsg.Msg.String(),
 		"from": msg.From,
 		"to":   msg.To,
-	}).Info("Handling message")
+	}).Debug("Handling message")
 
 	height, round := util.ExtractHR(tMsg)
 	r.Logger.With(log.LogParams{
@@ -299,15 +276,17 @@ func (r *RoundSkipPrevote) HandleMessage(msg *types.Message) (bool, []*types.Mes
 		r.partitioner.NewPartition(round)
 		partition, _ = r.partitioner.GetPartition(round)
 	}
+	honestDelayed, _ := partition.GetPart("honestDelayed")
+	faulty, _ := partition.GetPart("faulty")
 	r.Logger.With(log.LogParams{
 		"partition": partition.String(),
 	}).Debug("Partition")
-	if partition.IsHonestDelayed(msg.From) {
+	if honestDelayed.Exists(msg.From) {
 		// Delay message based on message type
 		if tMsg.Type == util.Prevote {
 			r.Logger.With(log.LogParams{
 				"replica": msg.From,
-			}).Info("Delaying prevote")
+			}).Debug("Delaying prevote")
 			r.mtx.Lock()
 			_, ok := r.delayedMessages[round]
 			if !ok {
@@ -317,12 +296,12 @@ func (r *RoundSkipPrevote) HandleMessage(msg *types.Message) (bool, []*types.Mes
 			r.mtx.Unlock()
 			return false, []*types.Message{}
 		}
-	} else if partition.IsFaulty(msg.From) {
+	} else if faulty.Exists(msg.From) {
 		// Change vote if the vote is something we care about
 		if tMsg.Type == util.Prevote { // || tMsg.Type == util.Precommit
 			r.Logger.With(log.LogParams{
 				"replica": msg.From,
-			}).Info("Changing prevote")
+			}).Debug("Changing prevote")
 			replica, ok := r.allReplicas.GetReplica(msg.From)
 			if !ok {
 				return true, []*types.Message{}
@@ -345,4 +324,13 @@ func (r *RoundSkipPrevote) HandleMessage(msg *types.Message) (bool, []*types.Mes
 	}
 
 	return true, []*types.Message{}
+}
+
+func (r *RoundSkipPrevote) Assert() error {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+	if r.curRound != r.roundsToSkip {
+		return errors.New("could not complete skipping rounds")
+	}
+	return nil
 }

@@ -17,7 +17,7 @@ func main() {
 
 	server, err := testing.NewTestServer(
 		testing.ServerConfig{
-			Addr:     "192.168.0.6:7074",
+			Addr:     "192.168.0.2:7074",
 			Replicas: 4,
 			LogPath:  "/tmp/tendermint/log/checker.log",
 		},
@@ -26,7 +26,8 @@ func main() {
 			// Parition strategy is to choose h, F (|F| = f) and R (|R|  = 2f) at random in the beginning
 			// and to retain the same partition for further round skips
 			// testcases.NewRoundSkipPrevote(1, 2),
-			roundskip.NewRoundSkipBlockPart(1, 2),
+			// roundskip.NewRoundSkipBlockPart(1, 2),
+			roundskip.NewPreviousVote(1, 5),
 		},
 	)
 

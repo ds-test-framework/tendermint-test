@@ -1,6 +1,7 @@
 package roundskip
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/ds-test-framework/scheduler/types"
@@ -14,6 +15,14 @@ type Part struct {
 
 func (p *Part) Exists(replica types.ReplicaID) bool {
 	return p.ReplicaSet.Exists(replica)
+}
+
+func (p *Part) Size() int {
+	return p.ReplicaSet.Size()
+}
+
+func (p *Part) String() string {
+	return fmt.Sprintf("Label: %s\nMembers: %s", p.Label, p.ReplicaSet.String())
 }
 
 type Partition struct {
@@ -41,7 +50,17 @@ func (p *Partition) GetPart(label string) (*Part, bool) {
 	return part, ok
 }
 
+func (p *Partition) String() string {
+	str := "Parts:\n"
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	for _, part := range p.Parts {
+		str += part.String() + "\n"
+	}
+	return str
+}
+
 type Partitioner interface {
 	NewPartition(int)
-	GetPartition(int) (Partition, bool)
+	GetPartition(int) (*Partition, bool)
 }
