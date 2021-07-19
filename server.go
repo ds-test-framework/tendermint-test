@@ -25,9 +25,10 @@ func main() {
 			// testcases.NewDummtTestCase(),
 			// Parition strategy is to choose h, F (|F| = f) and R (|R|  = 2f) at random in the beginning
 			// and to retain the same partition for further round skips
-			// testcases.NewRoundSkipPrevote(1, 2),
+			// roundskip.NewRoundSkipPrevote(1, 2),
 			// roundskip.NewRoundSkipBlockPart(1, 2),
-			roundskip.NewPreviousVote(1, 5),
+			// roundskip.NewPreviousVote(1, 5),
+			roundskip.NewModifiedProposal(1, 4),
 		},
 	)
 

@@ -179,10 +179,8 @@ type RoundSkipPrevote struct {
 	faults          int
 	height          int
 	roundsToSkip    int
-
-	// TODO: Should move to the `Partitioner` interface
-	partitioner Partitioner
-	ready       chan bool
+	partitioner     Partitioner
+	ready           chan bool
 }
 
 func NewRoundSkipPrevote(height, roundsToSkip int) *RoundSkipPrevote {
@@ -308,6 +306,9 @@ func (r *RoundSkipPrevote) HandleMessage(msg *types.Message) (bool, []*types.Mes
 			}
 			newVote, err := util.ChangeVote(replica, tMsg)
 			if err != nil {
+				r.Logger.With(log.LogParams{
+					"error": err.Error(),
+				}).Error("Error changing vote")
 				// Could not change vote. This should be recoreded and retried
 				return true, []*types.Message{}
 			}

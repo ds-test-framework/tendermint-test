@@ -1,14 +1,14 @@
 package util
 
 import (
-	"encoding/base64"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-	"github.com/tendermint/tendermint/crypto/secp256k1"
+	tmjson "github.com/tendermint/tendermint/libs/json"
+	"github.com/tendermint/tendermint/privval"
 )
 
 type ReplicaSet struct {
@@ -74,33 +74,21 @@ func (r *ReplicaSet) String() string {
 
 // Should cache key instead of decoding everytime
 func GetPrivKey(r *types.Replica) (crypto.PrivKey, error) {
-	privKey, ok := r.Info["private_key"]
+	pK, ok := r.Info["privkey"]
 	if !ok {
-		return nil, errors.New("private key information does not exist")
+		return nil, errors.New("no private key specified")
 	}
-	privKeyMap, ok := privKey.(map[string]interface{})
+	pKS, ok := pK.(string)
 	if !ok {
-		return nil, errors.New("key information invalid")
+		return nil, errors.New("malformed key type")
 	}
-	keyType := privKeyMap["type"].(string)
-	keyEncoding := privKeyMap["key"].(string)
 
-	switch keyType {
-	case ed25519.KeyType:
-		key, err := base64.StdEncoding.DecodeString(keyEncoding)
-		if err != nil {
-			return nil, errors.New("malformed private key")
-		}
-		return ed25519.PrivKey(key), nil
-	case secp256k1.KeyType:
-		key, err := base64.StdEncoding.DecodeString(keyEncoding)
-		if err != nil {
-			return nil, errors.New("malformed private key")
-		}
-		return secp256k1.PrivKey(key), nil
-	default:
-		return nil, errors.New("key type invalid")
+	privKey := privval.FilePVKey{}
+	err := tmjson.Unmarshal([]byte(pKS), &privKey)
+	if err != nil {
+		return nil, fmt.Errorf("malformed key: %#v. error: %s", r.Info, err)
 	}
+	return privKey.PrivKey, nil
 }
 
 func GetChainID(r *types.Replica) (string, error) {

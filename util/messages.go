@@ -2,6 +2,7 @@ package util
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/ds-test-framework/scheduler/types"
@@ -170,26 +171,74 @@ func ChangeVote(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrap
 	}
 
 	vote := voteMsg.Msg.GetVote().Vote
-	vote.BlockID = prototypes.BlockID{
-		Hash:          nil,
-		PartSetHeader: prototypes.PartSetHeader{},
+	newVote := &ttypes.Vote{
+		Type:   vote.Type,
+		Height: vote.Height,
+		Round:  vote.Round,
+		BlockID: ttypes.BlockID{
+			Hash:          nil,
+			PartSetHeader: ttypes.PartSetHeader{},
+		},
+		Timestamp:        vote.Timestamp,
+		ValidatorAddress: vote.ValidatorAddress,
+		ValidatorIndex:   vote.ValidatorIndex,
 	}
-	signBytes := ttypes.VoteSignBytes(chainID, vote)
+	signBytes := ttypes.VoteSignBytes(chainID, newVote.ToProto())
 
 	sig, err := privKey.Sign(signBytes)
 	if err != nil {
 		return nil, fmt.Errorf("could not sign vote: %s", err)
 	}
 
-	vote.Signature = sig
+	newVote.Signature = sig
 
 	voteMsg.Msg = &tmsg.Message{
 		Sum: &tmsg.Message_Vote{
 			Vote: &tmsg.Vote{
-				Vote: vote,
+				Vote: newVote.ToProto(),
 			},
 		},
 	}
 
 	return voteMsg, nil
+}
+
+func ChangeProposal(replica *types.Replica, pMsg *TMessageWrapper) (*TMessageWrapper, error) {
+	privKey, err := GetPrivKey(replica)
+	if err != nil {
+		return nil, err
+	}
+	chainID, err := GetChainID(replica)
+	if err != nil {
+		return nil, err
+	}
+	propP := pMsg.Msg.GetProposal().Proposal
+	prop, err := ttypes.ProposalFromProto(&propP)
+	if err != nil {
+		return nil, errors.New("failed converting proposal message")
+	}
+	newProp := &ttypes.Proposal{
+		Type:      prop.Type,
+		Height:    prop.Height,
+		Round:     prop.Round,
+		POLRound:  -1,
+		BlockID:   prop.BlockID,
+		Timestamp: prop.Timestamp,
+	}
+
+	signB := ttypes.ProposalSignBytes(chainID, newProp.ToProto())
+	sig, err := privKey.Sign(signB)
+	if err != nil {
+		return nil, fmt.Errorf("could not sign proposal: %s", err)
+	}
+	newProp.Signature = sig
+	pMsg.Msg = &tmsg.Message{
+		Sum: &tmsg.Message_Proposal{
+			Proposal: &tmsg.Proposal{
+				Proposal: *newProp.ToProto(),
+			},
+		},
+	}
+
+	return pMsg, nil
 }
