@@ -7,7 +7,7 @@ import (
 	"syscall"
 
 	"github.com/ds-test-framework/scheduler/testing"
-	"github.com/ds-test-framework/tendermint-test/testcases"
+	"github.com/ds-test-framework/tendermint-test/testcases/lockedvalue"
 )
 
 func main() {
@@ -21,14 +21,15 @@ func main() {
 			Replicas: 4,
 			LogPath:  "/tmp/tendermint/log/checker.log",
 		},
-		[]*testing.TestCase{
-			testcases.NewDummtTestCase(),
+		[]testing.TestCase{
+			// testcases.NewDummtTestCase(),
 			// Parition strategy is to choose h, F (|F| = f) and R (|R|  = 2f) at random in the beginning
 			// and to retain the same partition for further round skips
 			// roundskip.NewRoundSkipPrevote(1, 2),
 			// roundskip.NewRoundSkipBlockPart(1, 2),
 			// roundskip.NewPreviousVote(1, 5),
 			// roundskip.PrevoteTestCase(1, 4),
+			lockedvalue.NewLockedValue(),
 		},
 	)
 

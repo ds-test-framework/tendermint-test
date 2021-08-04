@@ -80,7 +80,7 @@ func (r *roundCounter) Skipped(round int) bool {
 	return false
 }
 
-type staticPartitioner struct {
+type StaticPartitioner struct {
 	allReplicas  *types.ReplicaStore
 	mtx          *sync.Mutex
 	partitionMap map[int]*Partition
@@ -88,8 +88,8 @@ type staticPartitioner struct {
 	logger       *log.Logger
 }
 
-func newStaticPartitioner(replicaStore *types.ReplicaStore, faults int, logger *log.Logger) *staticPartitioner {
-	return &staticPartitioner{
+func NewStaticPartitioner(replicaStore *types.ReplicaStore, faults int, logger *log.Logger) *StaticPartitioner {
+	return &StaticPartitioner{
 		allReplicas:  replicaStore,
 		mtx:          new(sync.Mutex),
 		partitionMap: make(map[int]*Partition),
@@ -98,7 +98,7 @@ func newStaticPartitioner(replicaStore *types.ReplicaStore, faults int, logger *
 	}
 }
 
-func (p *staticPartitioner) NewPartition(round int) {
+func (p *StaticPartitioner) NewPartition(round int) {
 	// Strategy to choose the next partition comes here
 
 	p.mtx.Lock()
@@ -152,14 +152,14 @@ func (p *staticPartitioner) NewPartition(round int) {
 	}).Info("New partition")
 }
 
-func (p *staticPartitioner) GetPartition(round int) (*Partition, bool) {
+func (p *StaticPartitioner) GetPartition(round int) (*Partition, bool) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	partition, ok := p.partitionMap[round]
 	return partition, ok
 }
 
-func (p *staticPartitioner) GetReplicaInfo(id types.ReplicaID) *types.Replica {
+func (p *StaticPartitioner) GetReplicaInfo(id types.ReplicaID) *types.Replica {
 	r, ok := p.allReplicas.GetReplica(id)
 	if !ok {
 		return nil
@@ -201,7 +201,7 @@ func (r *RoundSkipPrevote) Initialize(replicaStore *types.ReplicaStore, logger *
 
 	r.BaseTestCase.Initialize(replicaStore, logger)
 	r.faults = faults
-	r.partitioner = newStaticPartitioner(replicaStore, faults, logger)
+	r.partitioner = NewStaticPartitioner(replicaStore, faults, logger)
 	r.partitioner.NewPartition(r.curRound)
 	r.roundCounter = newRoundCounter(replicaStore, faults)
 	close(r.ready)
