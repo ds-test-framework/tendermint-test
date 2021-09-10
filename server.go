@@ -8,7 +8,7 @@ import (
 
 	"github.com/ds-test-framework/scheduler/config"
 	"github.com/ds-test-framework/scheduler/testlib"
-	"github.com/ds-test-framework/tendermint-test/testcases"
+	"github.com/ds-test-framework/tendermint-test/testcases/rskip"
 )
 
 func main() {
@@ -18,22 +18,18 @@ func main() {
 
 	server, err := testlib.NewTestingServer(
 		&config.Config{
-			APIServerAddr: "192.168.0.6:7074",
+			APIServerAddr: "10.30.160.105:7074",
 			NumReplicas:   4,
 			LogConfig: config.LogConfig{
 				Path: "/tmp/tendermint/log/checker.log",
 			},
+			ReportStoreConfig: config.ReportStoreConfig{
+				Path: "/Users/srinidhi/go/src/github.com/ds-test-framework/tendermint-test/reports",
+			},
 		},
 		[]*testlib.TestCase{
-			// testcases.NewDummtTestCase(),
-			// Parition strategy is to choose h, F (|F| = f) and R (|R|  = 2f) at random in the beginning
-			// and to retain the same partition for further round skips
-			// roundskip.NewRoundSkipPrevote(1, 2),
-			// roundskip.NewRoundSkipBlockPart(1, 2),
-			// roundskip.NewPreviousVote(1, 5),
-			// roundskip.PrevoteTestCase(1, 4),
-			// lockedvalue.NewLockedValue(),
-			testcases.DummyTestCase(),
+			// testcases.DummyTestCase(),
+			rskip.OneTestcase(1, 2),
 		},
 	)
 

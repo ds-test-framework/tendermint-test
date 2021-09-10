@@ -79,7 +79,59 @@ func (r *roundReachedCond) Check(c *testlib.Context) bool {
 
 func getChangeAndDelayVotesAction() testlib.StateAction {
 	return func(c *testlib.Context) []*types.Message {
-		// change votes and delay votes here!
+		curEventType := c.CurEvent.Type
+
+		var message *types.Message
+		message = nil
+
+		switch curEventType := curEventType.(type) {
+		case *types.MessageSendEventType:
+			messageID := curEventType.MessageID
+			msg, ok := c.MessagePool.Get(messageID)
+			if !ok {
+				return []*types.Message{}
+			}
+			message = msg
+		}
+		if message == nil {
+			return []*types.Message{}
+		}
+
+		tMsg, err := util.Unmarshal(message.Data)
+		if err != nil {
+			return []*types.Message{}
+		}
+		if tMsg.Type != util.Prevote {
+			return []*types.Message{message}
+		}
+
+		partition := getPartition(c)
+		rest, _ := partition.GetPart("rest")
+		faulty, _ := partition.GetPart("faulty")
+		if rest.Exists(message.From) {
+			return []*types.Message{message}
+		} else if faulty.Exists(message.From) {
+			replica, ok := c.Replicas.Get(message.From)
+			if !ok {
+				return []*types.Message{}
+			}
+			newvote, err := util.ChangeVote(replica, tMsg)
+			if err != nil {
+				return []*types.Message{}
+			}
+			data, err := util.Marshal(newvote)
+			if err != nil {
+				return []*types.Message{}
+			}
+			newMsg := message.Clone().(*types.Message)
+			newMsg.ID = ""
+			newMsg.Data = data
+			return []*types.Message{newMsg}
+		} else {
+			delayedM := getDelayedMStore(c)
+			delayedM.Add(message)
+		}
+
 		return []*types.Message{}
 	}
 }
@@ -90,12 +142,57 @@ func setupFunc(c *testlib.Context) error {
 	partitioner.NewPartition(0)
 	partition, _ := partitioner.GetPartition(0)
 	c.Vars.Set("partition", partition)
+	delayedMessages := types.NewMessageStore()
+	c.Vars.Set("delayedMessages", delayedMessages)
 	return nil
 }
 
 func getPartition(c *testlib.Context) *util.Partition {
 	v, _ := c.Vars.Get("partition")
 	return v.(*util.Partition)
+}
+
+func getDelayedMStore(c *testlib.Context) *types.MessageStore {
+	v, _ := c.Vars.Get("delayedMessages")
+	return v.(*types.MessageStore)
+}
+
+func deliverDelayedAction(testcase *testlib.TestCase) testlib.StateAction {
+
+	getDelayedMessages := func(c *testlib.Context) []*types.Message {
+		delayedM := getDelayedMStore(c)
+		if delayedM.Size() == 0 {
+			return []*types.Message{}
+		}
+		messages := make([]*types.Message, delayedM.Size())
+		for i, m := range delayedM.Iter() {
+			messages[i] = m
+			delayedM.Remove(m.ID)
+		}
+		c.Transition(testcase.Success().Label)
+		return messages
+	}
+
+	return func(c *testlib.Context) []*types.Message {
+		cEventType := c.CurEvent.Type
+		messages := getDelayedMessages(c)
+		switch cEventType := cEventType.(type) {
+		case *types.MessageSendEventType:
+			mID := cEventType.MessageID
+			message, ok := c.MessagePool.Get(mID)
+			if ok {
+				messages = append(messages, message)
+			}
+		}
+		return messages
+	}
+}
+
+func getNoDelayedMessagesCond() testlib.Condition {
+	return func(c *testlib.Context) bool {
+		delayedMessages := getDelayedMStore(c)
+		return delayedMessages.Size() == 0
+	}
 }
 
 func OneTestcase(height, round int) *testlib.TestCase {
@@ -107,7 +204,9 @@ func OneTestcase(height, round int) *testlib.TestCase {
 	builder.
 		On(getHeightReachedCond(height), "delayAndChangeVotes").
 		Do(getChangeAndDelayVotesAction()).
-		On(newRoundReachedCond(round).Check, testcase.Success().Label)
+		On(newRoundReachedCond(round).Check, "deliverDelayed").
+		Do(deliverDelayedAction(testcase)).
+		On(getNoDelayedMessagesCond(), testcase.Success().Label)
 
 	return testcase
 }
