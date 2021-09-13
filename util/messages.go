@@ -242,3 +242,15 @@ func ChangeProposal(replica *types.Replica, pMsg *TMessageWrapper) (*TMessageWra
 
 	return pMsg, nil
 }
+
+func GetProposalBlockID(msg *TMessageWrapper) (string, bool) {
+	if msg.Type != Proposal {
+		return "", false
+	}
+	prop := msg.Msg.GetProposal()
+	blockdID, err := ttypes.BlockIDFromProto(&prop.Proposal.BlockID)
+	if err != nil {
+		return "", false
+	}
+	return blockdID.Hash.String(), true
+}

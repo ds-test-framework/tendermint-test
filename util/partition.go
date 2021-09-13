@@ -12,7 +12,7 @@ type Part struct {
 	Label      string
 }
 
-func (p *Part) Exists(replica types.ReplicaID) bool {
+func (p *Part) Contains(replica types.ReplicaID) bool {
 	return p.ReplicaSet.Exists(replica)
 }
 

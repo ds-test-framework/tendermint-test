@@ -1,11 +1,13 @@
 package rskip
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/types"
+	sutil "github.com/ds-test-framework/scheduler/util"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
@@ -108,9 +110,9 @@ func getChangeAndDelayVotesAction() testlib.StateAction {
 		partition := getPartition(c)
 		rest, _ := partition.GetPart("rest")
 		faulty, _ := partition.GetPart("faulty")
-		if rest.Exists(message.From) {
+		if rest.Contains(message.From) {
 			return []*types.Message{message}
-		} else if faulty.Exists(message.From) {
+		} else if faulty.Contains(message.From) {
 			replica, ok := c.Replicas.Get(message.From)
 			if !ok {
 				return []*types.Message{}
@@ -124,7 +126,8 @@ func getChangeAndDelayVotesAction() testlib.StateAction {
 				return []*types.Message{}
 			}
 			newMsg := message.Clone().(*types.Message)
-			newMsg.ID = ""
+			counter := getCounter(c)
+			newMsg.ID = fmt.Sprintf("%s_%s_change%d", newMsg.From, newMsg.To, counter.Next())
 			newMsg.Data = data
 			return []*types.Message{newMsg}
 		} else {
@@ -144,12 +147,18 @@ func setupFunc(c *testlib.Context) error {
 	c.Vars.Set("partition", partition)
 	delayedMessages := types.NewMessageStore()
 	c.Vars.Set("delayedMessages", delayedMessages)
+	c.Vars.Set("counter", sutil.NewCounter())
 	return nil
 }
 
 func getPartition(c *testlib.Context) *util.Partition {
 	v, _ := c.Vars.Get("partition")
 	return v.(*util.Partition)
+}
+
+func getCounter(c *testlib.Context) *sutil.Counter {
+	v, _ := c.Vars.Get("counter")
+	return v.(*sutil.Counter)
 }
 
 func getDelayedMStore(c *testlib.Context) *types.MessageStore {
@@ -203,9 +212,9 @@ func OneTestcase(height, round int) *testlib.TestCase {
 
 	builder.
 		On(getHeightReachedCond(height), "delayAndChangeVotes").
-		Do(getChangeAndDelayVotesAction()).
+		Action(getChangeAndDelayVotesAction()).
 		On(newRoundReachedCond(round).Check, "deliverDelayed").
-		Do(deliverDelayedAction(testcase)).
+		Action(deliverDelayedAction(testcase)).
 		On(getNoDelayedMessagesCond(), testcase.Success().Label)
 
 	return testcase

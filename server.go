@@ -8,7 +8,7 @@ import (
 
 	"github.com/ds-test-framework/scheduler/config"
 	"github.com/ds-test-framework/scheduler/testlib"
-	"github.com/ds-test-framework/tendermint-test/testcases/rskip"
+	"github.com/ds-test-framework/tendermint-test/testcases/lockedvalue"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 
 	server, err := testlib.NewTestingServer(
 		&config.Config{
-			APIServerAddr: "10.30.160.105:7074",
+			APIServerAddr: "192.168.50.174:7074",
 			NumReplicas:   4,
 			LogConfig: config.LogConfig{
 				Path: "/tmp/tendermint/log/checker.log",
@@ -29,7 +29,8 @@ func main() {
 		},
 		[]*testlib.TestCase{
 			// testcases.DummyTestCase(),
-			rskip.OneTestcase(1, 2),
+			// rskip.OneTestcase(1, 2),
+			lockedvalue.One(),
 		},
 	)
 
