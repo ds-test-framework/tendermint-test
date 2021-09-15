@@ -8,7 +8,7 @@ import (
 
 	"github.com/ds-test-framework/scheduler/config"
 	"github.com/ds-test-framework/scheduler/testlib"
-	"github.com/ds-test-framework/tendermint-test/testcases/lockedvalue"
+	"github.com/ds-test-framework/tendermint-test/testcases/bfttime"
 )
 
 func main() {
@@ -30,7 +30,8 @@ func main() {
 		[]*testlib.TestCase{
 			// testcases.DummyTestCase(),
 			// rskip.OneTestcase(1, 2),
-			lockedvalue.One(),
+			// lockedvalue.One(),
+			bfttime.OneTestCase(),
 		},
 	)
 

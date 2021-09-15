@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/gogo/protobuf/proto"
@@ -203,6 +204,57 @@ func ChangeVote(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrap
 	return voteMsg, nil
 }
 
+func ChangeVoteTime(replica *types.Replica, tMsg *TMessageWrapper, time time.Time) (*TMessageWrapper, error) {
+
+	privKey, err := GetPrivKey(replica)
+	if err != nil {
+		return nil, err
+	}
+	chainID, err := GetChainID(replica)
+	if err != nil {
+		return nil, err
+	}
+
+	if tMsg.Type != Prevote && tMsg.Type != Precommit {
+		// Can't change vote of unknown type
+		return tMsg, nil
+	}
+
+	vote := tMsg.Msg.GetVote().Vote
+
+	blockID, err := ttypes.BlockIDFromProto(&vote.BlockID)
+	if err != nil {
+		return nil, err
+	}
+	newVote := &ttypes.Vote{
+		Type:             vote.Type,
+		Height:           vote.Height,
+		Round:            vote.Round,
+		BlockID:          *blockID,
+		Timestamp:        time,
+		ValidatorAddress: vote.ValidatorAddress,
+		ValidatorIndex:   vote.ValidatorIndex,
+	}
+	signBytes := ttypes.VoteSignBytes(chainID, newVote.ToProto())
+
+	sig, err := privKey.Sign(signBytes)
+	if err != nil {
+		return nil, fmt.Errorf("could not sign vote: %s", err)
+	}
+
+	newVote.Signature = sig
+
+	tMsg.Msg = &tmsg.Message{
+		Sum: &tmsg.Message_Vote{
+			Vote: &tmsg.Vote{
+				Vote: newVote.ToProto(),
+			},
+		},
+	}
+
+	return tMsg, nil
+}
+
 func ChangeProposal(replica *types.Replica, pMsg *TMessageWrapper) (*TMessageWrapper, error) {
 	privKey, err := GetPrivKey(replica)
 	if err != nil {
@@ -253,4 +305,11 @@ func GetProposalBlockID(msg *TMessageWrapper) (string, bool) {
 		return "", false
 	}
 	return blockdID.Hash.String(), true
+}
+
+func GetVoteTime(msg *TMessageWrapper) (time.Time, bool) {
+	if msg.Type == Precommit || msg.Type == Prevote {
+		return msg.Msg.GetVote().Vote.Timestamp, true
+	}
+	return time.Time{}, false
 }
