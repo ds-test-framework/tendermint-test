@@ -26,7 +26,7 @@ func cond(c *testlib.Context) bool {
 	switch e.Type.(type) {
 	case *types.MessageSendEventType:
 		eventType := e.Type.(*types.MessageSendEventType)
-		c.Logger().With(log.LogParams{"message_id": eventType.MessageID}).Info("Received message")
+		c.Logger().With(log.LogParams{"message_id": eventType.MessageID}).Debug("Received message")
 		messageRaw, ok := c.MessagePool.Get(eventType.MessageID)
 		if ok {
 			message, err := util.Unmarshal(messageRaw.Data)
@@ -43,7 +43,7 @@ func cond(c *testlib.Context) bool {
 }
 
 func DummyTestCase() *testlib.TestCase {
-	testcase := testlib.NewTestCase("Dummy", 30*time.Second)
+	testcase := testlib.NewTestCase("Dummy", 20*time.Second)
 
 	testcase.Builder().
 		Action(action).

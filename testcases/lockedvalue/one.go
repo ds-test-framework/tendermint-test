@@ -154,10 +154,7 @@ func (o *oneAction) getRoundMessages(c *testlib.Context, round int) []*types.Mes
 	}
 
 	for id := range deliveredMessage {
-		_, ok := sentMessages[id]
-		if ok {
-			delete(sentMessages, id)
-		}
+		delete(sentMessages, id)
 	}
 	result := make([]*types.Message, len(sentMessages))
 	i := 0

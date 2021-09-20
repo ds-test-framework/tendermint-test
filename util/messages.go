@@ -15,6 +15,10 @@ import (
 
 type MessageType string
 
+var (
+	ErrInvalidVote = errors.New("invalid message type to change vote")
+)
+
 const (
 	NewRoundStep  MessageType = "NewRoundStep"
 	NewValidBlock MessageType = "NewValidBlock"
@@ -56,7 +60,7 @@ func Unmarshal(m []byte) (*TMessageWrapper, error) {
 
 	if err := proto.Unmarshal(cMsg.MsgB, msg); err != nil {
 		// log.Debug("Error unmarshalling")
-		cMsg.Type = "None"
+		cMsg.Type = None
 		cMsg.Msg = nil
 		return &cMsg, nil
 	}
@@ -165,7 +169,7 @@ func ChangeVote(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrap
 
 	if voteMsg.Type != Prevote && voteMsg.Type != Precommit {
 		// Can't change vote of unknown type
-		return voteMsg, nil
+		return voteMsg, ErrInvalidVote
 	}
 
 	vote := voteMsg.Msg.GetVote().Vote
