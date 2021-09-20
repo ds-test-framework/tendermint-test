@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -62,6 +63,50 @@ func (p *Partition) String() string {
 type Partitioner interface {
 	NewPartition(int)
 	GetPartition(int) (*Partition, bool)
+}
+
+type GenericPartitioner struct {
+	allReplicas *types.ReplicaStore
+}
+
+func NewGenericParititioner(replicasStore *types.ReplicaStore) *GenericPartitioner {
+	return &GenericPartitioner{
+		allReplicas: replicasStore,
+	}
+}
+
+func (g *GenericPartitioner) CreateParition(sizes []int, labels []string) (*Partition, error) {
+	if len(sizes) != len(labels) {
+		return nil, errors.New("sizes and labels should be of same length")
+	}
+	totSize := 0
+	parts := make([]*Part, len(sizes))
+	for i, size := range sizes {
+		if size <= 0 {
+			return nil, errors.New("sizes have to be greater than 0")
+		}
+		totSize += size
+		parts[i] = &Part{
+			ReplicaSet: NewReplicaSet(),
+			Label:      labels[i],
+		}
+	}
+	if totSize != g.allReplicas.Cap() {
+		return nil, errors.New("total size is not the same as number of replicas")
+	}
+	curIndex := 0
+	for _, r := range g.allReplicas.Iter() {
+		part := parts[curIndex]
+		size := sizes[curIndex]
+		if part.Size() < size {
+			part.ReplicaSet.Add(r.ID)
+		} else {
+			curIndex++
+			part := parts[curIndex]
+			part.ReplicaSet.Add(r.ID)
+		}
+	}
+	return NewPartition(parts...), nil
 }
 
 type StaticPartitioner struct {

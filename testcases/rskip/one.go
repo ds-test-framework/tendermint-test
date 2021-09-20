@@ -178,7 +178,7 @@ func deliverDelayedAction(testcase *testlib.TestCase) testlib.StateAction {
 			messages[i] = m
 			delayedM.Remove(m.ID)
 		}
-		c.Transition(testcase.Success().Label)
+		c.Transition(testlib.SuccessStateLabel)
 		return messages
 	}
 
@@ -210,12 +210,12 @@ func OneTestcase(height, round int) *testlib.TestCase {
 
 	builder := testcase.Builder()
 
-	builder.
+	builder.Action(testlib.AllowAllAction).
 		On(getHeightReachedCond(height), "delayAndChangeVotes").
 		Action(getChangeAndDelayVotesAction()).
 		On(newRoundReachedCond(round).Check, "deliverDelayed").
 		Action(deliverDelayedAction(testcase)).
-		On(getNoDelayedMessagesCond(), testcase.Success().Label)
+		On(getNoDelayedMessagesCond(), testlib.SuccessStateLabel)
 
 	return testcase
 }

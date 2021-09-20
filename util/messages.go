@@ -28,9 +28,6 @@ const (
 	VoteSetMaj23  MessageType = "VoteSetMaj23"
 	VoteSetBits   MessageType = "VoteSetBits"
 	None          MessageType = "None"
-
-	PreVoteType   prototypes.SignedMsgType = prototypes.PrevoteType
-	PreCommitType prototypes.SignedMsgType = prototypes.PrecommitType
 )
 
 type TMessageWrapper struct {
@@ -255,7 +252,49 @@ func ChangeVoteTime(replica *types.Replica, tMsg *TMessageWrapper, time time.Tim
 	return tMsg, nil
 }
 
-func ChangeProposal(replica *types.Replica, pMsg *TMessageWrapper) (*TMessageWrapper, error) {
+func ChangeProposalBlockID(replica *types.Replica, pMsg *TMessageWrapper) (*TMessageWrapper, error) {
+	privKey, err := GetPrivKey(replica)
+	if err != nil {
+		return nil, err
+	}
+	chainID, err := GetChainID(replica)
+	if err != nil {
+		return nil, err
+	}
+	propP := pMsg.Msg.GetProposal().Proposal
+	prop, err := ttypes.ProposalFromProto(&propP)
+	if err != nil {
+		return nil, errors.New("failed converting proposal message")
+	}
+	newProp := &ttypes.Proposal{
+		Type:     prop.Type,
+		Height:   prop.Height,
+		Round:    prop.Round,
+		POLRound: prop.POLRound,
+		BlockID: ttypes.BlockID{
+			Hash:          nil,
+			PartSetHeader: ttypes.PartSetHeader{},
+		},
+		Timestamp: prop.Timestamp,
+	}
+	signB := ttypes.ProposalSignBytes(chainID, newProp.ToProto())
+	sig, err := privKey.Sign(signB)
+	if err != nil {
+		return nil, fmt.Errorf("could not sign proposal: %s", err)
+	}
+	newProp.Signature = sig
+	pMsg.Msg = &tmsg.Message{
+		Sum: &tmsg.Message_Proposal{
+			Proposal: &tmsg.Proposal{
+				Proposal: *newProp.ToProto(),
+			},
+		},
+	}
+
+	return pMsg, nil
+}
+
+func ChangeProposalLockedValue(replica *types.Replica, pMsg *TMessageWrapper) (*TMessageWrapper, error) {
 	privKey, err := GetPrivKey(replica)
 	if err != nil {
 		return nil, err
@@ -312,4 +351,16 @@ func GetVoteTime(msg *TMessageWrapper) (time.Time, bool) {
 		return msg.Msg.GetVote().Vote.Timestamp, true
 	}
 	return time.Time{}, false
+}
+
+func GetVoteBlockID(msg *TMessageWrapper) (string, bool) {
+	if msg.Type != Prevote && msg.Type != Precommit {
+		return "", false
+	}
+	vote := msg.Msg.GetVote().Vote
+	blockID, err := ttypes.BlockIDFromProto(&vote.BlockID)
+	if err != nil {
+		return "", false
+	}
+	return blockID.Hash.String(), true
 }
