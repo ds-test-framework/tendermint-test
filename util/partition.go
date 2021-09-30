@@ -60,11 +60,6 @@ func (p *Partition) String() string {
 	return str
 }
 
-type Partitioner interface {
-	NewPartition(int)
-	GetPartition(int) (*Partition, bool)
-}
-
 type GenericPartitioner struct {
 	allReplicas *types.ReplicaStore
 }

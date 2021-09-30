@@ -1,16 +1,17 @@
 package rskip
 
 import (
-	"sync"
 	"time"
 
+	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
-func getHeightReachedCond(height int) testlib.Condition {
-	return func(c *testlib.Context) bool {
+func heightReached(height int) smlib.Condition {
+	return func(c *smlib.Context) bool {
 		if !c.CurEvent.IsMessageSend() {
 			return false
 		}
@@ -28,146 +29,95 @@ func getHeightReachedCond(height int) testlib.Condition {
 	}
 }
 
-type roundReachedCond struct {
-	replicas map[types.ReplicaID]int
-	lock     *sync.Mutex
-	round    int
-}
+// type roundReachedCond struct {
+// 	replicas map[types.ReplicaID]int
+// 	lock     *sync.Mutex
+// 	round    int
+// }
 
-func newRoundReachedCond(round int) *roundReachedCond {
-	return &roundReachedCond{
-		replicas: make(map[types.ReplicaID]int),
-		lock:     new(sync.Mutex),
-		round:    round,
-	}
-}
+// func newRoundReachedCond(round int) *roundReachedCond {
+// 	return &roundReachedCond{
+// 		replicas: make(map[types.ReplicaID]int),
+// 		lock:     new(sync.Mutex),
+// 		round:    round,
+// 	}
+// }
 
-func (r *roundReachedCond) Check(c *testlib.Context) bool {
+// func (r *roundReachedCond) Check(c *testlib.Context) bool {
 
-	if !c.CurEvent.IsMessageSend() {
-		return false
-	}
-	messageID, _ := c.CurEvent.MessageID()
-	message, ok := c.MessagePool.Get(messageID)
-	if !ok {
-		return false
-	}
-	tMsg, err := util.Unmarshal(message.Data)
-	if err != nil {
-		return false
-	}
-	_, round := util.ExtractHR(tMsg)
+// 	if !c.CurEvent.IsMessageSend() {
+// 		return false
+// 	}
+// 	messageID, _ := c.CurEvent.MessageID()
+// 	message, ok := c.MessagePool.Get(messageID)
+// 	if !ok {
+// 		return false
+// 	}
+// 	tMsg, err := util.Unmarshal(message.Data)
+// 	if err != nil {
+// 		return false
+// 	}
+// 	_, round := util.ExtractHR(tMsg)
 
-	r.lock.Lock()
-	r.replicas[message.From] = round
-	r.lock.Unlock()
+// 	r.lock.Lock()
+// 	r.replicas[message.From] = round
+// 	r.lock.Unlock()
 
-	threshold := int(c.Replicas.Cap() * 2 / 3)
-	count := 0
-	r.lock.Lock()
-	for _, round := range r.replicas {
-		if round >= r.round {
-			count = count + 1
+// 	threshold := int(c.Replicas.Cap() * 2 / 3)
+// 	count := 0
+// 	r.lock.Lock()
+// 	for _, round := range r.replicas {
+// 		if round >= r.round {
+// 			count = count + 1
+// 		}
+// 	}
+// 	r.lock.Unlock()
+// 	return count >= threshold
+// }
+
+func roundReached(toRound int) smlib.Condition {
+	return func(c *smlib.Context) bool {
+		if !c.CurEvent.IsMessageSend() {
+			return false
 		}
-	}
-	r.lock.Unlock()
-	return count >= threshold
-}
-
-func getUndeliveredMessages(c *testlib.Context) []*types.Message {
-	sentMessages := make(map[string]*types.Message)
-	deliveredMessages := make(map[string]*types.Message)
-
-	for _, replica := range c.Replicas.Iter() {
-		latest, ok := c.EventDAG.GetLatestEvent(replica.ID)
-		if !ok {
-			continue
-		}
-		for latest != nil {
-			switch latest.Event.Type.(type) {
-			case *types.MessageSendEventType:
-				messageID, _ := latest.Event.MessageID()
-				message, ok := c.MessagePool.Get(messageID)
-				if ok {
-					sentMessages[messageID] = message
-				}
-			case *types.MessageReceiveEventType:
-				messageID, _ := latest.Event.MessageID()
-				message, ok := c.MessagePool.Get(messageID)
-				if ok {
-					deliveredMessages[messageID] = message
-				}
-			}
-			latest = latest.GetPrev()
-		}
-	}
-	result := make([]*types.Message, 0)
-	for id := range deliveredMessages {
-		delete(sentMessages, id)
-	}
-	for _, message := range sentMessages {
-		result = append(result, message)
-	}
-	return result
-}
-
-func changeAndDelayVotesAction(c *testlib.Context) []*types.Message {
-
-	messages := make([]*types.Message, 0)
-
-	if c.CurEvent.IsMessageSend() {
 		messageID, _ := c.CurEvent.MessageID()
 		message, ok := c.MessagePool.Get(messageID)
-		if ok {
-			messages = append(messages, message)
+		if !ok {
+			return false
 		}
-	}
 
-	prevMessages, ok := c.Vars.GetBool("gatherMessages")
-	if !ok || !prevMessages {
-		messages = append(messages, getUndeliveredMessages(c)...)
-		c.Logger().Info("Fetched undelivered messages")
-		c.Vars.Set("gatherMessages", true)
-	}
-
-	result := make([]*types.Message, 0)
-	for _, message := range messages {
 		tMsg, err := util.Unmarshal(message.Data)
 		if err != nil {
-			continue
+			return false
 		}
-		if tMsg.Type != util.Prevote {
-			result = append(result, message)
-			continue
+		_, round := util.ExtractHR(tMsg)
+		rI, ok := c.Vars.Get("roundCount")
+		if !ok {
+			c.Vars.Set("roundCount", map[string]int{})
+			rI, _ = c.Vars.Get("roundCount")
 		}
+		roundCount := rI.(map[string]int)
+		cRound, ok := roundCount[string(message.From)]
+		if !ok {
+			roundCount[string(message.From)] = round
+		}
+		if cRound < round {
+			roundCount[string(message.From)] = round
+		}
+		c.Vars.Set("roundCount", roundCount)
 
-		partition := getPartition(c)
-		rest, _ := partition.GetPart("rest")
-		faulty, _ := partition.GetPart("faulty")
-		if rest.Contains(message.From) {
-			result = append(result, message)
-			continue
-		} else if faulty.Contains(message.From) {
-			replica, ok := c.Replicas.Get(message.From)
-			if !ok {
-				continue
+		skipped := 0
+		for _, r := range roundCount {
+			if r >= toRound {
+				skipped++
 			}
-			newvote, err := util.ChangeVote(replica, tMsg)
-			if err != nil {
-				continue
-			}
-			data, err := util.Marshal(newvote)
-			if err != nil {
-				continue
-			}
-			result = append(result, c.NewMessage(message, data))
-			continue
-		} else {
-			delayedM := getDelayedMStore(c)
-			delayedM.Add(message)
 		}
+		if skipped == c.Replicas.Cap() {
+			c.Logger().With(log.LogParams{"round": toRound}).Info("Reached round")
+			return true
+		}
+		return false
 	}
-	return result
 }
 
 func setupFunc(c *testlib.Context) error {
@@ -191,69 +141,100 @@ func getDelayedMStore(c *testlib.Context) *types.MessageStore {
 	return v.(*types.MessageStore)
 }
 
-func deliverDelayedAction(c *testlib.Context) []*types.Message {
-
-	getDelayedMessages := func(c *testlib.Context) []*types.Message {
-		delayedM := getDelayedMStore(c)
-		if delayedM.Size() == 0 {
-			return []*types.Message{}
-		}
-		messages := make([]*types.Message, delayedM.Size())
-		for i, m := range delayedM.Iter() {
-			messages[i] = m
-			delayedM.Remove(m.ID)
-		}
-		c.Transition(testlib.SuccessStateLabel)
-		return messages
-	}
-	messages := getDelayedMessages(c)
-	if c.CurEvent.IsMessageSend() {
-		messageID, _ := c.CurEvent.MessageID()
-		message, ok := c.MessagePool.Get(messageID)
-		if ok {
-			messages = append(messages, message)
-		}
-	}
-	return messages
-}
-
-func noDelayedMessagesCond(c *testlib.Context) bool {
-	delayedMessages := getDelayedMStore(c)
+func noDelayedMessagesCond(c *smlib.Context) bool {
+	delayedMessages := getDelayedMStore(c.Context)
 	return delayedMessages.Size() == 0
 }
 
-func allowSetupMessages(c *testlib.Context) []*types.Message {
+func changeVoteFilter(height, round int) smlib.EventHandler {
+	return func(c *smlib.Context) ([]*types.Message, bool) {
+		if !c.CurEvent.IsMessageSend() {
+			return []*types.Message{}, true
+		}
+		messageID, _ := c.CurEvent.MessageID()
+		message, ok := c.MessagePool.Get(messageID)
+		if !ok {
+			return []*types.Message{}, false
+		}
+
+		tMsg, err := util.Unmarshal(message.Data)
+		if err != nil {
+			return []*types.Message{}, false
+		}
+		if tMsg.Type != util.Prevote {
+			return []*types.Message{message}, false
+		}
+		h, r := util.ExtractHR(tMsg)
+		if h != height || r >= round || r < 0 {
+			return []*types.Message{message}, true
+		}
+
+		partition := getPartition(c.Context)
+		rest, _ := partition.GetPart("rest")
+		faulty, _ := partition.GetPart("faulty")
+		if rest.Contains(message.From) {
+			return []*types.Message{message}, true
+		} else if faulty.Contains(message.From) {
+			replica, ok := c.Replicas.Get(message.From)
+			if !ok {
+				return []*types.Message{}, false
+			}
+			newvote, err := util.ChangeVoteToNil(replica, tMsg)
+			if err != nil {
+				return []*types.Message{}, false
+			}
+			data, err := util.Marshal(newvote)
+			if err != nil {
+				return []*types.Message{}, false
+			}
+			return []*types.Message{c.NewMessage(message, data)}, true
+		} else {
+			delayedM := getDelayedMStore(c.Context)
+			delayedM.Add(message)
+			return []*types.Message{}, true
+		}
+	}
+}
+
+func deliverDelayedFilter(c *smlib.Context) ([]*types.Message, bool) {
+	if c.StateMachine.CurState().Label != "deliverDelayed" {
+		return []*types.Message{}, false
+	}
 	if !c.CurEvent.IsMessageSend() {
-		return []*types.Message{}
+		return []*types.Message{}, true
 	}
 	messageID, _ := c.CurEvent.MessageID()
 	message, ok := c.MessagePool.Get(messageID)
 	if !ok {
-		return []*types.Message{}
+		return []*types.Message{}, false
 	}
-	tMsg, err := util.Unmarshal(message.Data)
-	if err != nil {
-		return []*types.Message{message}
+	delayedM := getDelayedMStore(c.Context)
+	if delayedM.Size() == 0 {
+		return []*types.Message{message}, true
 	}
-	height, round := util.ExtractHR(tMsg)
-	if height == -1 || round == -1 {
-		return []*types.Message{message}
+	messages := make([]*types.Message, delayedM.Size())
+	for i, m := range delayedM.Iter() {
+		messages[i] = m
+		delayedM.Remove(m.ID)
 	}
-	return []*types.Message{}
+	messages = append(messages, message)
+	return messages, true
 }
 
 func OneTestcase(height, round int) *testlib.TestCase {
-	testcase := testlib.NewTestCase("RoundSkipPrevote", 30*time.Second)
+
+	sm := smlib.NewStateMachine()
+	sm.Builder().
+		On(heightReached(height), "delayAndChangeVotes").
+		On(roundReached(round), "deliverDelayed").
+		On(noDelayedMessagesCond, smlib.SuccessStateLabel)
+
+	handler := smlib.NewAsyncStateMachineHandler(sm)
+	handler.AddEventHandler(changeVoteFilter(height, round))
+	handler.AddEventHandler(deliverDelayedFilter)
+
+	testcase := testlib.NewTestCase("RoundSkipPrevote", 30*time.Second, handler)
 	testcase.SetupFunc(setupFunc)
-
-	builder := testcase.Builder()
-
-	builder.Action(allowSetupMessages).
-		On(getHeightReachedCond(height), "delayAndChangeVotes").
-		Action(changeAndDelayVotesAction).
-		On(newRoundReachedCond(round).Check, "deliverDelayed").
-		Action(deliverDelayedAction).
-		On(noDelayedMessagesCond, testlib.SuccessStateLabel)
 
 	return testcase
 }

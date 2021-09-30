@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,12 +36,31 @@ const (
 )
 
 type TMessageWrapper struct {
-	ChannelID uint16          `json:"chan_id"`
-	MsgB      []byte          `json:"msg"`
-	From      types.ReplicaID `json:"from"`
-	To        types.ReplicaID `json:"to"`
-	Type      MessageType     `json:"-"`
-	Msg       *tmsg.Message   `json:"-"`
+	ChannelID        uint16          `json:"chan_id"`
+	MsgB             []byte          `json:"msg"`
+	From             types.ReplicaID `json:"from"`
+	To               types.ReplicaID `json:"to"`
+	Type             MessageType     `json:"-"`
+	Msg              *tmsg.Message   `json:"-"`
+	SchedulerMessage *types.Message  `json:"-"`
+}
+
+func GetMessageFromEvent(event *types.Event, messagePool *types.MessageStore) (*TMessageWrapper, error) {
+	if !event.IsMessageSend() && !event.IsMessageReceive() {
+		return nil, errors.New("event is neither message send or receive")
+	}
+	messageID, _ := event.MessageID()
+	message, ok := messagePool.Get(messageID)
+	if !ok {
+		return nil, errors.New("message not found in the pool")
+	}
+
+	tMsg, err := Unmarshal(message.Data)
+	if err != nil {
+		return nil, err
+	}
+	tMsg.SchedulerMessage = message
+	return tMsg, nil
 }
 
 func Unmarshal(m []byte) (*TMessageWrapper, error) {
@@ -157,7 +177,14 @@ func ExtractHR(msg *TMessageWrapper) (int, int) {
 	return -1, -1
 }
 
-func ChangeVote(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrapper, error) {
+func ChangeVoteToNil(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrapper, error) {
+	return ChangeVote(replica, voteMsg, &ttypes.BlockID{
+		Hash:          nil,
+		PartSetHeader: ttypes.PartSetHeader{},
+	})
+}
+
+func ChangeVote(replica *types.Replica, tMsg *TMessageWrapper, blockID *ttypes.BlockID) (*TMessageWrapper, error) {
 	privKey, err := GetPrivKey(replica)
 	if err != nil {
 		return nil, err
@@ -167,20 +194,17 @@ func ChangeVote(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrap
 		return nil, err
 	}
 
-	if voteMsg.Type != Prevote && voteMsg.Type != Precommit {
+	if tMsg.Type != Prevote && tMsg.Type != Precommit {
 		// Can't change vote of unknown type
-		return voteMsg, ErrInvalidVote
+		return tMsg, ErrInvalidVote
 	}
 
-	vote := voteMsg.Msg.GetVote().Vote
+	vote := tMsg.Msg.GetVote().Vote
 	newVote := &ttypes.Vote{
-		Type:   vote.Type,
-		Height: vote.Height,
-		Round:  vote.Round,
-		BlockID: ttypes.BlockID{
-			Hash:          nil,
-			PartSetHeader: ttypes.PartSetHeader{},
-		},
+		Type:             vote.Type,
+		Height:           vote.Height,
+		Round:            vote.Round,
+		BlockID:          *blockID,
 		Timestamp:        vote.Timestamp,
 		ValidatorAddress: vote.ValidatorAddress,
 		ValidatorIndex:   vote.ValidatorIndex,
@@ -194,7 +218,7 @@ func ChangeVote(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrap
 
 	newVote.Signature = sig
 
-	voteMsg.Msg = &tmsg.Message{
+	tMsg.Msg = &tmsg.Message{
 		Sum: &tmsg.Message_Vote{
 			Vote: &tmsg.Vote{
 				Vote: newVote.ToProto(),
@@ -202,7 +226,7 @@ func ChangeVote(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrap
 		},
 	}
 
-	return voteMsg, nil
+	return tMsg, nil
 }
 
 func ChangeVoteTime(replica *types.Replica, tMsg *TMessageWrapper, time time.Time) (*TMessageWrapper, error) {
@@ -338,16 +362,24 @@ func ChangeProposalLockedValue(replica *types.Replica, pMsg *TMessageWrapper) (*
 	return pMsg, nil
 }
 
-func GetProposalBlockID(msg *TMessageWrapper) (string, bool) {
-	if msg.Type != Proposal {
+func GetProposalBlockIDS(msg *TMessageWrapper) (string, bool) {
+	blockID, ok := GetProposalBlockID(msg)
+	if !ok {
 		return "", false
+	}
+	return blockID.Hash.String(), true
+}
+
+func GetProposalBlockID(msg *TMessageWrapper) (*ttypes.BlockID, bool) {
+	if msg.Type != Proposal {
+		return nil, false
 	}
 	prop := msg.Msg.GetProposal()
-	blockdID, err := ttypes.BlockIDFromProto(&prop.Proposal.BlockID)
+	blockID, err := ttypes.BlockIDFromProto(&prop.Proposal.BlockID)
 	if err != nil {
-		return "", false
+		return nil, false
 	}
-	return blockdID.Hash.String(), true
+	return blockID, true
 }
 
 func GetVoteTime(msg *TMessageWrapper) (time.Time, bool) {
@@ -357,14 +389,33 @@ func GetVoteTime(msg *TMessageWrapper) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-func GetVoteBlockID(msg *TMessageWrapper) (string, bool) {
-	if msg.Type != Prevote && msg.Type != Precommit {
+func GetVoteBlockIDS(msg *TMessageWrapper) (string, bool) {
+	blockID, ok := GetVoteBlockID(msg)
+	if !ok {
 		return "", false
+	}
+	return blockID.Hash.String(), true
+}
+
+func GetVoteBlockID(msg *TMessageWrapper) (*ttypes.BlockID, bool) {
+	if msg.Type != Prevote && msg.Type != Precommit {
+		return nil, false
 	}
 	vote := msg.Msg.GetVote().Vote
 	blockID, err := ttypes.BlockIDFromProto(&vote.BlockID)
 	if err != nil {
-		return "", false
+		return nil, false
 	}
-	return blockID.Hash.String(), true
+	return blockID, true
+}
+
+func IsVoteFrom(msg *TMessageWrapper, replica *types.Replica) bool {
+	privKey, err := GetPrivKey(replica)
+	if err != nil {
+		return false
+	}
+	replicaAddr := privKey.PubKey().Address()
+	voteAddr := msg.Msg.GetVote().Vote.ValidatorAddress
+
+	return bytes.Equal(replicaAddr.Bytes(), voteAddr)
 }

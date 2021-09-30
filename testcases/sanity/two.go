@@ -1,46 +1,62 @@
 package sanity
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
 type twoAction struct{}
 
-func (t *twoAction) Round0(c *testlib.Context) []*types.Message {
-
+func faultyFilter(c *smlib.Context) ([]*types.Message, bool) {
 	if !c.CurEvent.IsMessageSend() {
-		return []*types.Message{}
+		return []*types.Message{}, false
 	}
 	messageID, _ := c.CurEvent.MessageID()
 	message, ok := c.MessagePool.Get(messageID)
 	if !ok {
-		return []*types.Message{}
+		return []*types.Message{}, false
 	}
 
 	tMsg, err := util.Unmarshal(message.Data)
 	if err != nil {
-		return []*types.Message{}
+		return []*types.Message{}, false
+	}
+	if isFaultyVote(c.Context, tMsg, message) {
+		return []*types.Message{changeFultyVote(c.Context, tMsg, message)}, true
+	}
+	return []*types.Message{}, false
+}
+
+func round0_Two(c *smlib.Context) ([]*types.Message, bool) {
+
+	if !c.CurEvent.IsMessageSend() {
+		return []*types.Message{}, false
+	}
+	messageID, _ := c.CurEvent.MessageID()
+	message, ok := c.MessagePool.Get(messageID)
+	if !ok {
+		return []*types.Message{}, false
+	}
+
+	tMsg, err := util.Unmarshal(message.Data)
+	if err != nil {
+		return []*types.Message{}, false
 	}
 	_, round := util.ExtractHR(tMsg)
 	if round == -1 {
-		return []*types.Message{message}
+		return []*types.Message{message}, true
 	}
 	if round != 0 {
-		return []*types.Message{}
-	}
-
-	if isFaultyVote(c, tMsg, message) {
-		return []*types.Message{changeFultyVote(c, tMsg, message)}
+		return []*types.Message{}, false
 	}
 
 	if tMsg.Type == util.Precommit {
-		voteCount := getVoteCount(c)
+		voteCount := getVoteCount(c.Context)
 		faults, _ := c.Vars.GetInt("faults")
 		_, ok := voteCount[string(message.To)]
 		if !ok {
@@ -48,77 +64,54 @@ func (t *twoAction) Round0(c *testlib.Context) []*types.Message {
 		}
 		curCount := voteCount[string(message.To)]
 		if curCount >= 2*faults-1 {
-			return []*types.Message{}
+			return []*types.Message{}, true
 		}
 		voteCount[string(message.To)] = curCount + 1
 		c.Vars.Set("voteCount", voteCount)
 	}
 
-	return []*types.Message{message}
+	return []*types.Message{message}, true
 }
 
-func (t *twoAction) Round1(c *testlib.Context) []*types.Message {
-	messages := make([]*types.Message, 0)
-	if c.CurEvent.IsMessageSend() {
-		messageID, _ := c.CurEvent.MessageID()
-		message, ok := c.MessagePool.Get(messageID)
-		if ok {
-			messages = append(messages, message)
-		}
-	}
+func round1_Two(c *smlib.Context) ([]*types.Message, bool) {
 
-	parseOld, ok := c.Vars.GetBool("gatherRound1Messages")
+	if !c.CurEvent.IsMessageSend() {
+		return []*types.Message{}, false
+	}
+	messageID, _ := c.CurEvent.MessageID()
+	message, ok := c.MessagePool.Get(messageID)
 	if !ok {
-		c.Vars.Set("gatherRound1Messages", false)
-		parseOld = false
-	}
-	if !parseOld {
-		messages = append(messages, getRoundMessages(c, 1)...)
-		c.Vars.Set("gatherRound1Messages", true)
+		return []*types.Message{}, false
 	}
 
-	result := make([]*types.Message, 0)
+	tMsg, err := util.Unmarshal(message.Data)
+	if err != nil {
+		return []*types.Message{}, false
+	}
 
-	for _, message := range messages {
-		tMsg, err := util.Unmarshal(message.Data)
+	_, round := util.ExtractHR(tMsg)
+	if round == -1 {
+		return []*types.Message{message}, true
+	}
+	if round != 1 {
+		return []*types.Message{}, false
+	}
+
+	if tMsg.Type == util.Proposal {
+		replica, _ := c.Replicas.Get(message.From)
+		newProp, err := util.ChangeProposalBlockID(replica, tMsg)
 		if err != nil {
-			continue
+			c.Logger().With(log.LogParams{"error": err}).Error("Failed to change proposal")
+			return []*types.Message{message}, true
 		}
-
-		_, round := util.ExtractHR(tMsg)
-		if round == -1 {
-			result = append(result, message)
+		newMsgB, err := util.Marshal(newProp)
+		if err != nil {
+			c.Logger().With(log.LogParams{"error": err}).Error("Failed to marshal changed proposal")
+			return []*types.Message{message}, true
 		}
-		if round != 1 {
-			continue
-		}
-
-		if isFaultyVote(c, tMsg, message) {
-			result = append(result, changeFultyVote(c, tMsg, message))
-			continue
-		}
-
-		if tMsg.Type == util.Proposal {
-			replica, _ := c.Replicas.Get(message.From)
-			newProp, err := util.ChangeProposalBlockID(replica, tMsg)
-			if err != nil {
-				c.Logger().With(log.LogParams{"error": err}).Error("Failed to change proposal")
-				result = append(result, message)
-				continue
-			}
-			newMsgB, err := util.Marshal(newProp)
-			if err != nil {
-				c.Logger().With(log.LogParams{"error": err}).Error("Failed to marshal changed proposal")
-				result = append(result, message)
-				continue
-			}
-			result = append(result, c.NewMessage(message, newMsgB))
-			continue
-		}
-		result = append(result, message)
+		return []*types.Message{c.NewMessage(message, newMsgB)}, true
 	}
-
-	return result
+	return []*types.Message{message}, true
 }
 
 func isFaultyVote(c *testlib.Context, tMsg *util.TMessageWrapper, message *types.Message) bool {
@@ -132,7 +125,7 @@ func changeFultyVote(c *testlib.Context, tMsg *util.TMessageWrapper, message *ty
 	faulty, _ := partition.GetPart("faulty")
 	if (tMsg.Type == util.Prevote || tMsg.Type == util.Precommit) && faulty.Contains(message.From) {
 		replica, _ := c.Replicas.Get(message.From)
-		newVote, err := util.ChangeVote(replica, tMsg)
+		newVote, err := util.ChangeVoteToNil(replica, tMsg)
 		if err != nil {
 			return message
 		}
@@ -143,70 +136,6 @@ func changeFultyVote(c *testlib.Context, tMsg *util.TMessageWrapper, message *ty
 		return c.NewMessage(message, newMsgB)
 	}
 	return message
-}
-
-// traverse the EventDAG to find messages that belong to a particular round and haven't been delivered yet
-// The traversal stops when we hit a newRound event, this works because we traverse back from the latest event in each replica
-func getRoundMessages(c *testlib.Context, round int) []*types.Message {
-	sentMessages := make(map[string]*types.Message)
-	deliveredMessage := make(map[string]*types.Message)
-	for _, replica := range c.Replicas.Iter() {
-		last, ok := c.EventDAG.GetLatestEvent(replica.ID)
-		if !ok {
-			continue
-		}
-	StrandLoop:
-		for last != nil {
-			switch eventType := last.Event.Type.(type) {
-			case *types.GenericEventType:
-				if eventType.T == "newRound" {
-					roundS := eventType.Params["round"]
-					r, err := strconv.Atoi(roundS)
-					if err != nil {
-						break StrandLoop
-					}
-					if r == round {
-						break StrandLoop
-					}
-					break StrandLoop
-				}
-			case *types.MessageSendEventType:
-				message, ok := c.MessagePool.Get(eventType.MessageID)
-				if ok {
-					tMsg, err := util.Unmarshal(message.Data)
-					if err == nil {
-						_, r := util.ExtractHR(tMsg)
-						if r == round {
-							sentMessages[message.ID] = message
-						}
-					}
-				}
-			case *types.MessageReceiveEventType:
-				message, ok := c.MessagePool.Get(eventType.MessageID)
-				if ok {
-					tMsg, err := util.Unmarshal(message.Data)
-					if err == nil {
-						_, r := util.ExtractHR(tMsg)
-						if r == round {
-							deliveredMessage[message.ID] = message
-						}
-					}
-				}
-			}
-			last = last.GetPrev()
-		}
-	}
-
-	for id := range deliveredMessage {
-		delete(sentMessages, id)
-	}
-	result := make([]*types.Message, len(sentMessages))
-	i := 0
-	for _, m := range sentMessages {
-		result[i] = m
-		i++
-	}
-	return result
 }
 
 func getVoteCount(c *testlib.Context) map[string]int {
@@ -226,7 +155,7 @@ func twoSetup(c *testlib.Context) error {
 	return nil
 }
 
-func commitCond(c *testlib.Context) bool {
+func commitCond(c *smlib.Context) bool {
 	cEventType := c.CurEvent.Type
 	switch cEventType := cEventType.(type) {
 	case *types.GenericEventType:
@@ -238,8 +167,8 @@ func commitCond(c *testlib.Context) bool {
 	return false
 }
 
-func getRoundReachedCond(toRound int) testlib.Condition {
-	return func(c *testlib.Context) bool {
+func roundReached(toRound int) smlib.Condition {
+	return func(c *smlib.Context) bool {
 		if !c.CurEvent.IsMessageSend() {
 			return false
 		}
@@ -281,18 +210,21 @@ func getRoundReachedCond(toRound int) testlib.Condition {
 // 	2. In the next round change the proposal block value
 // 	3. Replicas should prevote and precommit nil and hence round skip
 func TwoTestCase() *testlib.TestCase {
-	testcase := testlib.NewTestCase("WrongProposal", 30*time.Second)
+
+	sm := smlib.NewStateMachine()
+	start := sm.Builder()
+	start.On(commitCond, smlib.FailStateLabel)
+	round1 := start.On(roundReached(1), "round1")
+	round1.On(commitCond, smlib.SuccessStateLabel)
+	round1.On(roundReached(2), smlib.FailStateLabel)
+
+	handler := smlib.NewAsyncStateMachineHandler(sm)
+	handler.AddEventHandler(faultyFilter)
+	handler.AddEventHandler(round0_Two)
+	handler.AddEventHandler(round1_Two)
+
+	testcase := testlib.NewTestCase("WrongProposal", 30*time.Second, handler)
 	testcase.SetupFunc(twoSetup)
-	action := &twoAction{}
-	builder := testcase.Builder().Action(action.Round0)
-
-	builder.On(commitCond, testlib.FailureStateLabel)
-	round1State := builder.On(getRoundReachedCond(1), "round1").Action(action.Round1)
-
-	round1State.On(commitCond, testlib.SuccessStateLabel)
-
-	// Should not reach round 2 since replicas prevote locked block and reach consensus
-	round1State.On(getRoundReachedCond(2), testlib.FailureStateLabel)
 
 	return testcase
 }

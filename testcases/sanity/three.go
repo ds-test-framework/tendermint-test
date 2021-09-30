@@ -5,184 +5,89 @@ import (
 
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
-type threeAction struct {
-}
-
-func (t *threeAction) handleFaulty(c *testlib.Context, message *types.Message, tMsg *util.TMessageWrapper) *types.Message {
-	replica, _ := c.Replicas.Get(message.From)
-	newVote, err := util.ChangeVote(replica, tMsg)
-	if err != nil {
-		return message
-	}
-	newMsgB, err := util.Marshal(newVote)
-	if err != nil {
-		return message
-	}
-	return c.NewMessage(message, newMsgB)
-}
-
-func (t *threeAction) handle0Prevote(c *testlib.Context, message *types.Message, tMsg *util.TMessageWrapper) []*types.Message {
-	voteCount := getVoteCount(c)
-	faults, _ := c.Vars.GetInt("faults")
-	_, ok := voteCount[string(message.To)]
-	if !ok {
-		voteCount[string(message.To)] = 0
-	}
-	curCount := voteCount[string(message.To)]
-	if curCount >= 2*faults-1 {
-		return []*types.Message{}
-	}
-	voteCount[string(message.To)] = curCount + 1
-	c.Vars.Set("voteCount", voteCount)
-	return []*types.Message{message}
-}
-
-func (t *threeAction) handle0Propose(c *testlib.Context, message *types.Message, tMsg *util.TMessageWrapper) []*types.Message {
-	blockID, ok := util.GetProposalBlockID(tMsg)
-	if ok {
-		c.Vars.Set("oldProposal", blockID)
-	}
-	return []*types.Message{message}
-}
-
-func (t *threeAction) Round0(c *testlib.Context) []*types.Message {
+func round0_Three(c *smlib.Context) ([]*types.Message, bool) {
 	if !c.CurEvent.IsMessageSend() {
-		return []*types.Message{}
+		return []*types.Message{}, false
 	}
 	messageID, _ := c.CurEvent.MessageID()
 	message, ok := c.MessagePool.Get(messageID)
 	if !ok {
-		return []*types.Message{}
+		return []*types.Message{}, false
 	}
 
 	tMsg, err := util.Unmarshal(message.Data)
 	if err != nil {
-		return []*types.Message{message}
+		return []*types.Message{message}, false
 	}
 
 	_, round := util.ExtractHR(tMsg)
 	if round == -1 {
-		return []*types.Message{message}
+		return []*types.Message{message}, true
 	}
 	if round != 0 {
-		return []*types.Message{}
+		return []*types.Message{}, false
 	}
-	partition := getPartition(c)
-	faulty, _ := partition.GetPart("faulty")
+	partition := getPartition(c.Context)
 	toNotLock, _ := partition.GetPart("toNotLock")
 
 	switch {
-	case faulty.Contains(message.From) && (tMsg.Type == util.Precommit || tMsg.Type == util.Prevote):
-		return []*types.Message{t.handleFaulty(c, message, tMsg)}
-	case tMsg.Type == util.Prevote && round == 0 && toNotLock.Contains(message.To):
-		return t.handle0Prevote(c, message, tMsg)
+	case tMsg.Type == util.Prevote && toNotLock.Contains(message.To):
+		voteCount := getVoteCount(c.Context)
+		faults, _ := c.Vars.GetInt("faults")
+		_, ok := voteCount[string(message.To)]
+		if !ok {
+			voteCount[string(message.To)] = 0
+		}
+		curCount := voteCount[string(message.To)]
+		if curCount >= 2*faults-1 {
+			return []*types.Message{}, true
+		}
+		voteCount[string(message.To)] = curCount + 1
+		c.Vars.Set("voteCount", voteCount)
+		return []*types.Message{message}, true
 	case tMsg.Type == util.Proposal && round == 0:
-		return t.handle0Propose(c, message, tMsg)
+		blockID, ok := util.GetProposalBlockIDS(tMsg)
+		if ok {
+			c.Vars.Set("oldProposal", blockID)
+		}
+		return []*types.Message{message}, true
 	}
 
-	return []*types.Message{message}
+	return []*types.Message{message}, true
 }
 
-func (t *threeAction) Round1(c *testlib.Context) []*types.Message {
-	messages := make([]*types.Message, 0)
-	if c.CurEvent.IsMessageSend() {
-		messageID, _ := c.CurEvent.MessageID()
-		message, ok := c.MessagePool.Get(messageID)
-		if ok {
-			messages = append(messages, message)
-		}
+func round1_Three(c *smlib.Context) ([]*types.Message, bool) {
+	if !c.CurEvent.IsMessageSend() {
+		return []*types.Message{}, false
 	}
-
-	parseOld, ok := c.Vars.GetBool("gatherRound1Messages")
+	messageID, _ := c.CurEvent.MessageID()
+	message, ok := c.MessagePool.Get(messageID)
 	if !ok {
-		c.Vars.Set("gatherRound1Messages", false)
-		parseOld = false
-	}
-	if !parseOld {
-		messages = append(messages, getRoundMessages(c, 1)...)
-		c.Vars.Set("gatherRound1Messages", true)
+		return []*types.Message{}, false
 	}
 
-	result := make([]*types.Message, 0)
-	for _, message := range messages {
-		tMsg, err := util.Unmarshal(message.Data)
-		if err != nil {
-			result = append(result, message)
-			continue
-		}
-
-		_, round := util.ExtractHR(tMsg)
-		if round == -1 {
-			result = append(result, message)
-			continue
-		}
-		if round != 1 {
-			continue
-		}
-		partition := getPartition(c)
-		faulty, _ := partition.GetPart("faulty")
-
-		if faulty.Contains(message.From) && (tMsg.Type == util.Precommit || tMsg.Type == util.Prevote) {
-			result = append(result, t.handleFaulty(c, message, tMsg))
-			continue
-		}
-		if tMsg.Type == util.Proposal {
-			continue
-		}
-
-		result = append(result, message)
-	}
-	return result
-}
-
-func (t *threeAction) Round2(c *testlib.Context) []*types.Message {
-	messages := make([]*types.Message, 0)
-	if c.CurEvent.IsMessageSend() {
-		messageID, _ := c.CurEvent.MessageID()
-		message, ok := c.MessagePool.Get(messageID)
-		if ok {
-			messages = append(messages, message)
-		}
+	tMsg, err := util.Unmarshal(message.Data)
+	if err != nil {
+		return []*types.Message{message}, false
 	}
 
-	parseOld, ok := c.Vars.GetBool("gatherRound2Messages")
-	if !ok {
-		c.Vars.Set("gatherRound2Messages", false)
-		parseOld = false
+	_, round := util.ExtractHR(tMsg)
+	if round == -1 {
+		return []*types.Message{message}, true
 	}
-	if !parseOld {
-		messages = append(messages, getRoundMessages(c, 2)...)
-		c.Vars.Set("gatherRound2Messages", true)
+	if round != 1 {
+		return []*types.Message{}, false
+	}
+	if tMsg.Type == util.Proposal {
+		return []*types.Message{}, true
 	}
 
-	result := make([]*types.Message, 0)
-	for _, message := range messages {
-		tMsg, err := util.Unmarshal(message.Data)
-		if err != nil {
-			result = append(result, message)
-			continue
-		}
-		_, round := util.ExtractHR(tMsg)
-		if round == -1 {
-			result = append(result, message)
-			continue
-		}
-		if round != 2 {
-			continue
-		}
-		partition := getPartition(c)
-		faulty, _ := partition.GetPart("faulty")
-		if faulty.Contains(message.From) && (tMsg.Type == util.Precommit || tMsg.Type == util.Prevote) {
-			result = append(result, t.handleFaulty(c, message, tMsg))
-			continue
-		}
-		result = append(result, message)
-	}
-	return result
+	return []*types.Message{message}, true
 }
 
 func threeSetup(c *testlib.Context) error {
@@ -199,7 +104,7 @@ func threeSetup(c *testlib.Context) error {
 	return nil
 }
 
-func threeCommitCond(c *testlib.Context) bool {
+func commitCond_Three(c *smlib.Context) bool {
 	cEventType := c.CurEvent.Type
 	switch cEventType := cEventType.(type) {
 	case *types.GenericEventType:
@@ -227,20 +132,23 @@ func threeCommitCond(c *testlib.Context) bool {
 }
 
 func ThreeTestCase() *testlib.TestCase {
-	testcase := testlib.NewTestCase("LockedValueCheck", 30*time.Second)
+
+	sm := smlib.NewStateMachine()
+	start := sm.Builder()
+	start.On(commitCond, smlib.FailStateLabel)
+	round1 := start.On(roundReached(1), "round1")
+	round1.On(commitCond, smlib.FailStateLabel)
+	round2 := round1.On(roundReached(2), "round2")
+	round2.On(commitCond_Three, smlib.SuccessStateLabel)
+
+	handler := smlib.NewAsyncStateMachineHandler(sm)
+	handler.AddEventHandler(faultyFilter)
+	handler.AddEventHandler(round0_Three)
+	handler.AddEventHandler(round1_Three)
+
+	testcase := testlib.NewTestCase("LockedValueCheck", 30*time.Second, handler)
 
 	testcase.SetupFunc(threeSetup)
-
-	action := &threeAction{}
-
-	builder := testcase.Builder().Action(action.Round0)
-	builder.On(commitCond, testlib.FailureStateLabel)
-
-	round1State := builder.On(getRoundReachedCond(1), "round1").Action(action.Round1)
-	round1State.On(commitCond, testlib.FailureStateLabel)
-
-	round2State := round1State.On(getRoundReachedCond(2), "round2").Action(action.Round2)
-	round2State.On(threeCommitCond, testlib.SuccessStateLabel)
 
 	return testcase
 }

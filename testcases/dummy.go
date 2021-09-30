@@ -5,6 +5,7 @@ import (
 
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
@@ -21,7 +22,19 @@ func action(c *testlib.Context) []*types.Message {
 	return []*types.Message{}
 }
 
-func cond(c *testlib.Context) bool {
+func actionSM(c *smlib.Context) ([]*types.Message, bool) {
+	if !c.CurEvent.IsMessageSend() {
+		return []*types.Message{}, false
+	}
+	messageID, _ := c.CurEvent.MessageID()
+	message, ok := c.MessagePool.Get(messageID)
+	if ok {
+		return []*types.Message{message}, true
+	}
+	return []*types.Message{}, true
+}
+
+func cond(c *smlib.Context) bool {
 	e := c.CurEvent
 	switch e.Type.(type) {
 	case *types.MessageSendEventType:
@@ -43,12 +56,19 @@ func cond(c *testlib.Context) bool {
 }
 
 func DummyTestCase() *testlib.TestCase {
-	testcase := testlib.NewTestCase("Dummy", 20*time.Second)
+	testcase := testlib.NewTestCase("Dummy", 20*time.Second, testlib.NewGenericHandler(action))
 
-	testcase.Builder().
-		Action(action).
-		On(cond, testlib.SuccessStateLabel)
+	return testcase
+}
 
+func DummyTestCaseStateMachine() *testlib.TestCase {
+	sm := smlib.NewStateMachine()
+	sm.Builder().On(cond, smlib.SuccessStateLabel)
+
+	handler := smlib.NewAsyncStateMachineHandler(sm)
+	handler.AddEventHandler(actionSM)
+
+	testcase := testlib.NewTestCase("DummySM", 30*time.Second, handler)
 	return testcase
 }
 

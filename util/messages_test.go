@@ -75,7 +75,7 @@ func TestChangeVote(t *testing.T) {
 		},
 	}
 
-	newVoteMsg, err := ChangeVote(replica, voteMsg)
+	newVoteMsg, err := ChangeVoteToNil(replica, voteMsg)
 	if err != nil {
 		t.Error(err)
 	}
