@@ -1,9 +1,0 @@
-time="2021-08-04T14:30:39+05:30" level=info msg="Starting server main loop" service=test-server
-time="2021-08-04T14:30:39+05:30" level=info msg="Starting test case" service=test-server testcase=OneLockedValue
-time="2021-08-04T14:30:39+05:30" level=info msg="Starting API server" addr="192.168.0.5:7074" service=APIServer
-time="2021-08-04T14:31:18+05:30" level=info msg="New partition" partition="Parts:\nLabel: faulty\nMembers: e31e2404188c8b7a59d151cf15fd2015046dd2b1,\nLabel: rest\nMembers: c6ae599da51aaca3899b11548676b5e60760304c,68cfbc9c019e8a0dfc04f42c0b4fc81fcf776aeb,\nLabel: honestDelayed\nMembers: a17b1f54884e70050c3c433dca95919519289777,\n" round=0 service=test-server testcase=OneLockedValue
-time="2021-08-04T14:31:29+05:30" level=info msg="Delivering old prevotes" service=test-server testcase=OneLockedValue
-time="2021-08-04T14:31:48+05:30" level=info msg="Testcase succeded" service=test-server testcase=OneLockedValue
-time="2021-08-04T14:31:48+05:30" level=info msg="Completed all test cases" service=test-server
-time="2021-08-04T14:31:48+05:30" level=info msg="Summary: \nTotal: 1, Success: 1, Failed: 0\n" service=test-server
-time="2021-08-04T14:31:48+05:30" level=info msg="Received Stop signal" service=test-server

@@ -57,7 +57,9 @@ func cond(c *smlib.Context) bool {
 
 func DummyTestCase() *testlib.TestCase {
 	testcase := testlib.NewTestCase("Dummy", 20*time.Second, testlib.NewGenericHandler(action))
-
+	testcase.AssertFn(func(c *testlib.Context) bool {
+		return true
+	})
 	return testcase
 }
 

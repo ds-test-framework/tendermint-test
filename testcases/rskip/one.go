@@ -114,6 +114,7 @@ func roundReached(toRound int) smlib.Condition {
 		}
 		if skipped == c.Replicas.Cap() {
 			c.Logger().With(log.LogParams{"round": toRound}).Info("Reached round")
+			c.Vars.Set("CurRound", toRound)
 			return true
 		}
 		return false
@@ -235,6 +236,10 @@ func OneTestcase(height, round int) *testlib.TestCase {
 
 	testcase := testlib.NewTestCase("RoundSkipPrevote", 30*time.Second, handler)
 	testcase.SetupFunc(setupFunc)
+	testcase.AssertFn(func(c *testlib.Context) bool {
+		curRound, ok := c.Vars.GetInt("CurRound")
+		return ok && curRound == round
+	})
 
 	return testcase
 }

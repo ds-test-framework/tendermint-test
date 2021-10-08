@@ -14,7 +14,7 @@ type testCaseTwoFilters struct{}
 
 func (testCaseTwoFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return []*types.Message{}, false
 	}
@@ -39,16 +39,12 @@ func (testCaseTwoFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 
 		if honestDelayed.Contains(tMsg.From) && util.IsVoteFrom(tMsg, replica) {
 			// c.Logger().Info("Checking unlocked vote")
-			oldPropI, _ := c.Vars.Get("oldProposal")
-			newPropI, _ := c.Vars.Get("newProposal")
-			oldProp := oldPropI.(string)
-			newProp := newPropI.(string)
+			newProp, _ := c.Vars.GetString("newProposal")
 			voteBlockID, ok := util.GetVoteBlockIDS(tMsg)
-			if ok && voteBlockID == oldProp {
-				c.Success()
-			} else if ok && voteBlockID == newProp {
+			c.Vars.Set("vote", voteBlockID)
+			if ok && voteBlockID == newProp {
 				c.Logger().With(log.LogParams{
-					"round0_proposal": oldProp,
+					"round1_proposal": newProp,
 					"vote":            voteBlockID,
 				}).Info("Failing because replica did unlocked")
 				c.Abort()
@@ -59,13 +55,13 @@ func (testCaseTwoFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 }
 
 func Two() *testlib.TestCase {
-	stateMachine := smlib.NewStateMachine()
 
 	commonCond := commonCond{}
 	tOneCond := testCaseOneCond{}
 	tOneFilters := testCaseOneFilters{}
 	filters := testCaseTwoFilters{}
 
+	stateMachine := smlib.NewStateMachine()
 	builder := stateMachine.Builder()
 	round2 := builder.
 		On(commonCond.valueLockedCond, "LockedValue").
@@ -83,6 +79,18 @@ func Two() *testlib.TestCase {
 
 	testcase := testlib.NewTestCase("LockedValueOne", 50*time.Second, handler)
 	testcase.SetupFunc(testCaseOneSetup)
+
+	testcase.AssertFn(func(c *testlib.Context) bool {
+		oldProposal, ok := c.Vars.GetString("oldProposal")
+		if !ok {
+			return false
+		}
+		vote, ok := c.Vars.GetString("vote")
+		if !ok {
+			return false
+		}
+		return vote == oldProposal
+	})
 
 	return testcase
 }

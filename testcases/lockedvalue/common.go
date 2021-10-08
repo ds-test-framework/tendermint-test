@@ -30,7 +30,7 @@ func (commonCond) updateRoundCount(c *smlib.Context, round int, from types.Repli
 
 func (t commonCond) roundReached(toRound int) smlib.Condition {
 	return func(c *smlib.Context) bool {
-		tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+		tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 		if err != nil {
 			return false
 		}
@@ -52,22 +52,22 @@ func (t commonCond) roundReached(toRound int) smlib.Condition {
 }
 
 func (commonCond) valueLockedCond(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	if !c.CurEvent.IsMessageReceive() {
+		return false
+	}
+	messageID, _ := c.CurEvent.MessageID()
+	message, ok := c.MessagePool.Get(messageID)
+	if !ok {
+		return false
+	}
+
+	tMsg, err := util.Unmarshal(message.Data)
 	if err != nil {
 		return false
 	}
-	messageID := tMsg.SchedulerMessage.ID
 
 	partition := getReplicaPartition(c.Context)
 	honestDelayed, _ := partition.GetPart("honestDelayed")
-
-	c.Logger().With(log.LogParams{
-		"message_id":    messageID,
-		"to":            tMsg.To,
-		"type":          tMsg.Type,
-		"honestDelayed": honestDelayed.String(),
-		"replica":       c.CurEvent.Replica,
-	}).Debug("message receive event")
 
 	if tMsg.Type == util.Prevote && honestDelayed.Contains(tMsg.To) {
 		c.Logger().With(log.LogParams{
@@ -87,7 +87,7 @@ func (commonCond) valueLockedCond(c *smlib.Context) bool {
 				votes++
 				c.Vars.Set("prevotesSent", votes)
 				if votes >= (2 * faults) {
-					c.Logger().Info("Value locked!")
+					c.Logger().Info("2f+1 votes received! Value locked!")
 					return true
 				}
 			}

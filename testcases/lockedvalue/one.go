@@ -13,7 +13,7 @@ import (
 type testCaseOneFilters struct{}
 
 func (t testCaseOneFilters) faultyReplicaFilter(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return []*types.Message{}, false
 	}
@@ -25,7 +25,7 @@ func (t testCaseOneFilters) faultyReplicaFilter(c *smlib.Context) ([]*types.Mess
 }
 
 func (testCaseOneFilters) Round0(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return []*types.Message{}, false
 	}
@@ -64,7 +64,7 @@ func (testCaseOneFilters) Round0(c *smlib.Context) ([]*types.Message, bool) {
 }
 
 func (t testCaseOneFilters) Round1(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return []*types.Message{}, false
 	}
@@ -113,7 +113,7 @@ func (testCaseOneFilters) recordDelayedProposal(c *testlib.Context, id string) {
 
 func (testCaseOneFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return []*types.Message{}, false
 	}
@@ -149,19 +149,15 @@ func (testCaseOneFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 
 		if honestDelayed.Contains(tMsg.From) && util.IsVoteFrom(tMsg, replica) {
 			// c.Logger().Info("Checking unlocked vote")
-			oldPropI, _ := c.Vars.Get("oldProposal")
-			newPropI, _ := c.Vars.Get("newProposal")
-			oldProp := oldPropI.(string)
-			newProp := newPropI.(string)
+			oldProp, _ := c.Vars.GetString("oldProposal")
 			voteBlockID, ok := util.GetVoteBlockIDS(tMsg)
+			c.Vars.Set("vote", voteBlockID)
 			if ok && voteBlockID == oldProp {
 				c.Logger().With(log.LogParams{
 					"round0_proposal": oldProp,
 					"vote":            voteBlockID,
 				}).Info("Failing because replica did not unlock")
 				c.Abort()
-			} else if ok && voteBlockID == newProp {
-				c.Success()
 			}
 		}
 	}
@@ -177,7 +173,7 @@ func testCaseOneSetup(c *testlib.Context) error {
 	c.Vars.Set("faults", faults)
 	c.Logger().With(log.LogParams{
 		"partition": partition.String(),
-	}).Debug("Partitiion created")
+	}).Info("Partitiion created")
 	return nil
 }
 
@@ -244,7 +240,7 @@ func (t testCaseOneCond) commitOldCond(c *smlib.Context) bool {
 }
 
 func (testCaseOneFilters) round0Message(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return false
 	}
@@ -253,7 +249,7 @@ func (testCaseOneFilters) round0Message(c *smlib.Context) bool {
 }
 
 func (testCaseOneFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, _ := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, _ := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	messageID := tMsg.SchedulerMessage.ID
 
 	switch tMsg.Type {
@@ -299,13 +295,25 @@ func One() *testlib.TestCase {
 
 	handler := smlib.NewAsyncStateMachineHandler(stateMachine)
 	handler.AddEventHandler(filters.faultyReplicaFilter)
-	handler.AddEventHandler(smlib.If(filters.round0Message).Then(filters.round0))
-	// handler.AddEventHandler(filters.Round0)
+	// handler.AddEventHandler(smlib.If(filters.round0Message).Then(filters.round0))
+	handler.AddEventHandler(filters.Round0)
 	handler.AddEventHandler(filters.Round1)
 	handler.AddEventHandler(filters.Round2)
 
 	testcase := testlib.NewTestCase("LockedValueOne", 50*time.Second, handler)
 	testcase.SetupFunc(testCaseOneSetup)
+
+	testcase.AssertFn(func(c *testlib.Context) bool {
+		newProposal, ok := c.Vars.GetString("newProposal")
+		if !ok {
+			return false
+		}
+		vote, ok := c.Vars.GetString("vote")
+		if !ok {
+			return false
+		}
+		return vote == newProposal
+	})
 
 	return testcase
 }

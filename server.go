@@ -8,7 +8,7 @@ import (
 
 	"github.com/ds-test-framework/scheduler/config"
 	"github.com/ds-test-framework/scheduler/testlib"
-	"github.com/ds-test-framework/tendermint-test/testcases/lockedvalue"
+	"github.com/ds-test-framework/tendermint-test/testcases/rskip"
 )
 
 func main() {
@@ -17,12 +17,22 @@ func main() {
 	signal.Notify(termCh, os.Interrupt, syscall.SIGTERM)
 
 	server, err := testlib.NewTestingServer(
-		&config.Config{},
+		&config.Config{
+			APIServerAddr: "172.28.46.239:7074",
+			NumReplicas:   4,
+			LogConfig: config.LogConfig{
+				Path: "/tmp/tendermint/log/checker.log",
+			},
+		},
 		[]*testlib.TestCase{
 			// testcases.DummyTestCase(),
-			// rskip.OneTestcase(1, 2),
+			rskip.OneTestcase(1, 2),
 			// lockedvalue.One(),
-			lockedvalue.Two(),
+			// lockedvalue.Two(),
+			// lockedvalue.Three(),
+			// sanity.OneTestCase(),
+			// sanity.TwoTestCase(),
+			// sanity.ThreeTestCase(),
 			// bfttime.OneTestCase(),
 		},
 	)

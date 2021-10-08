@@ -45,9 +45,9 @@ type TMessageWrapper struct {
 	SchedulerMessage *types.Message  `json:"-"`
 }
 
-func GetMessageFromEvent(event *types.Event, messagePool *types.MessageStore) (*TMessageWrapper, error) {
-	if !event.IsMessageSend() && !event.IsMessageReceive() {
-		return nil, errors.New("event is neither message send or receive")
+func GetMessageFromSendEvent(event *types.Event, messagePool *types.MessageStore) (*TMessageWrapper, error) {
+	if !event.IsMessageSend() {
+		return nil, errors.New("event is not message send ")
 	}
 	messageID, _ := event.MessageID()
 	message, ok := messagePool.Get(messageID)

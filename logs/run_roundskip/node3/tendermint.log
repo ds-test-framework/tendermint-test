@@ -1,0 +1,297 @@
+I[2021-10-08|09:27:01.902] Starting multiAppConn service                module=proxy impl=multiAppConn
+I[2021-10-08|09:27:01.912] Starting localClient service                 module=abci-client connection=query impl=localClient
+I[2021-10-08|09:27:01.912] Starting localClient service                 module=abci-client connection=snapshot impl=localClient
+I[2021-10-08|09:27:01.913] Starting localClient service                 module=abci-client connection=mempool impl=localClient
+I[2021-10-08|09:27:01.914] Starting localClient service                 module=abci-client connection=consensus impl=localClient
+I[2021-10-08|09:27:01.921] Starting EventBus service                    module=events impl=EventBus
+I[2021-10-08|09:27:01.923] Starting PubSub service                      module=pubsub impl=PubSub
+I[2021-10-08|09:27:02.207] Starting IndexerService service              module=txindex impl=IndexerService
+I[2021-10-08|09:27:02.208] ABCI Handshake App Info                      module=consensus height=0 hash= software-version=0.17.0 protocol-version=1
+I[2021-10-08|09:27:02.208] ABCI Replay Blocks                           module=consensus appHeight=0 storeHeight=0 stateHeight=0
+I[2021-10-08|09:27:02.231] Completed ABCI Handshake - Tendermint and App are synced module=consensus appHeight=0 appHash=
+I[2021-10-08|09:27:02.232] Version info                                 module=main software=unreleased-pct-instrumentation-unblock-test-98c96f695cd1ce58762c068c21063fd8b3f430b0 block=11 p2p=8
+I[2021-10-08|09:27:02.232] This node is a validator                     module=consensus addr=7D9E80876EBEFE87311D2EC9468521077676BCCB pubKey=PubKeyEd25519{5B7BFE314A2930A779D9AE6E56940B95BE774AB8E668DE4230C84D8F9BA673CF}
+I[2021-10-08|09:27:02.232] Created transport                            module=main 
+I[2021-10-08|09:27:02.574] P2P Node ID                                  module=p2p ID=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f file=/tendermint/node3/config/node_key.json
+I[2021-10-08|09:27:02.574] Adding persistent peers                      module=p2p addrs="[4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656 6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656 d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656]"
+I[2021-10-08|09:27:02.576] Adding unconditional peer ids                module=p2p ids=[]
+I[2021-10-08|09:27:02.576] Add our address to book                      module=p2p book=/tendermint/node3/config/addrbook.json addr=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@0.0.0.0:26656
+I[2021-10-08|09:27:02.576] Created node                                 module=main 
+I[2021-10-08|09:27:02.576] Starting node                                module=main 
+I[2021-10-08|09:27:02.576] Starting transport                           module=main 
+I[2021-10-08|09:27:02.577] Starting InterceptedTransport service        module=p2p transport=intercepted-transport impl=InterceptedTransport
+I[2021-10-08|09:27:02.577] Starting InterceptRouter service             module=p2p impl=InterceptRouter
+I[2021-10-08|09:27:02.577] Starting MasterController service            module=p2p impl=MasterController
+I[2021-10-08|09:27:02.577] Starting client controller                   module=p2p addr=0.0.0.0:8080
+I[2021-10-08|09:27:02.579] Starting pprof server                        module=main laddr=:6060
+I[2021-10-08|09:27:03.589] Starting Node service                        module=main impl=Node
+I[2021-10-08|09:27:03.589] p2p service                                  module=main legacy_enabled=true
+I[2021-10-08|09:27:03.589] Starting P2P Switch service                  module=p2p impl="P2P Switch"
+I[2021-10-08|09:27:03.589] Starting ConsensusShim service               module=consensus impl=ConsensusShim
+I[2021-10-08|09:27:03.589] Starting EvidenceShim service                module=evidence impl=EvidenceShim
+I[2021-10-08|09:27:03.589] Starting StateSyncShim service               module=statesync impl=StateSyncShim
+I[2021-10-08|09:27:03.589] Starting PEX service                         module=pex impl=PEX
+I[2021-10-08|09:27:03.590] Starting AddrBook service                    module=p2p book=/tendermint/node3/config/addrbook.json impl=AddrBook
+I[2021-10-08|09:27:03.593] Starting RPC HTTP server on [::]:26657       module=rpc-server 
+I[2021-10-08|09:27:03.613] Ensure peers                                 module=pex numOutPeers=0 numInPeers=0 numDialing=0 numToDial=10
+I[2021-10-08|09:27:03.613] No addresses to dial. Falling back to seeds  module=pex 
+I[2021-10-08|09:27:03.605] Starting MempoolShim service                 module=mempool impl=MempoolShim
+I[2021-10-08|09:27:03.626] Starting BlockchainShim service              module=blockchain impl=BlockchainShim
+I[2021-10-08|09:27:03.626] Starting Blockchain service                  module=blockchain impl=Blockchain
+I[2021-10-08|09:27:03.626] Starting BlockPool service                   module=blockpool impl=BlockPool
+I[2021-10-08|09:27:03.626] Starting Consensus service                   module=consensus impl=ConsensusReactor
+I[2021-10-08|09:27:03.626] Starting StateSync service                   module=statesync impl=StateSync
+I[2021-10-08|09:27:03.627] Starting Mempool service                     module=mempool impl=Mempool
+I[2021-10-08|09:27:03.627] Starting Evidence service                    module=evidence impl=Evidence
+I[2021-10-08|09:27:03.627] Saving AddrBook to file                      module=p2p book=/tendermint/node3/config/addrbook.json size=3
+I[2021-10-08|09:27:03.756] Started node                                 module=main nodeInfo="{ProtocolVersion:{P2P:8 Block:11 App:1} NodeID:d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f ListenAddr:tcp://0.0.0.0:26656 Network:chain-ELX4gc Version:unreleased-pct-instrumentation-unblock-test-98c96f695cd1ce58762c068c21063fd8b3f430b0 Channels:40202122233038606100 Moniker:DBA4FFE58701810B Other:{TxIndex:on RPCAddress:tcp://0.0.0.0:26657}}"
+I[2021-10-08|09:27:04.654] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=58.9720567s
+I[2021-10-08|09:27:04.779] Dialing peer                                 module=p2p address=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656
+I[2021-10-08|09:27:05.288] Dialing peer                                 module=p2p address=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656
+E[2021-10-08|09:27:05.293] Error dialing peer                           module=p2p err="dial tcp 192.167.10.4:26656: connect: connection refused"
+I[2021-10-08|09:27:05.293] Reconnecting to peer                         module=p2p addr=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656
+I[2021-10-08|09:27:05.293] Dialing peer                                 module=p2p address=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656
+I[2021-10-08|09:27:05.294] Error reconnecting to peer. Trying again     module=p2p tries=0 err="dial tcp 192.167.10.4:26656: connect: connection refused" addr=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656
+I[2021-10-08|09:27:05.590] Dialing peer                                 module=p2p address=6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656
+I[2021-10-08|09:27:05.630] Starting MConnection service                 module=p2p peer=mconn://6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 impl=MConn{192.167.10.3:26656}
+I[2021-10-08|09:27:05.630] Starting Peer service                        module=p2p peer=6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 impl="Peer{mconn://192.167.10.3:26656 6d0f48d4bcf87d44392f21aba5f6eef2671cc768 out}"
+I[2021-10-08|09:27:05.639] Added peer                                   module=p2p peer="Peer{mconn://192.167.10.3:26656 6d0f48d4bcf87d44392f21aba5f6eef2671cc768 out}"
+I[2021-10-08|09:27:05.652] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=57.9745043s
+I[2021-10-08|09:27:06.643] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=56.9830387s
+I[2021-10-08|09:27:07.642] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=55.9848655s
+E[2021-10-08|09:27:07.835] Error dialing peer                           module=p2p err="dial tcp 192.167.10.2:26656: connect: no route to host"
+I[2021-10-08|09:27:07.836] Reconnecting to peer                         module=p2p addr=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656
+I[2021-10-08|09:27:07.836] Dialing peer                                 module=p2p address=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656
+I[2021-10-08|09:27:08.644] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=54.9821846s
+I[2021-10-08|09:27:08.674] Starting MConnection service                 module=p2p peer=mconn://b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:34940 impl=MConn{192.167.10.4:34940}
+I[2021-10-08|09:27:08.675] Starting Peer service                        module=p2p peer=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:34940 impl="Peer{mconn://192.167.10.4:34940 b4c016b041e89b18034672d74a9d64745cf070f3 in}"
+I[2021-10-08|09:27:08.675] Added peer                                   module=p2p peer="Peer{mconn://192.167.10.4:34940 b4c016b041e89b18034672d74a9d64745cf070f3 in}"
+I[2021-10-08|09:27:09.642] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=53.9844381s
+I[2021-10-08|09:27:10.652] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=52.9740027s
+I[2021-10-08|09:27:10.915] Error reconnecting to peer. Trying again     module=p2p tries=0 err="dial tcp 192.167.10.2:26656: connect: no route to host" addr=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656
+I[2021-10-08|09:27:11.646] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=51.9799461s
+I[2021-10-08|09:27:12.653] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=50.9733726s
+I[2021-10-08|09:27:13.646] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=49.9806026s
+I[2021-10-08|09:27:14.643] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=48.9836968s
+I[2021-10-08|09:27:15.643] switching to consensus reactor               module=blockchain height=1
+I[2021-10-08|09:27:15.644] Stopping BlockPool service                   module=blockpool impl=BlockPool
+I[2021-10-08|09:27:15.818] switching to consensus                       module=consensus 
+I[2021-10-08|09:27:15.917] Starting State service                       module=consensus impl=ConsensusState
+I[2021-10-08|09:27:16.160] Starting MConnection service                 module=p2p peer=mconn://4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:58178 impl=MConn{192.167.10.2:58178}
+I[2021-10-08|09:27:16.160] Starting Peer service                        module=p2p peer=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:58178 impl="Peer{mconn://192.167.10.2:58178 4673a39792f0206653e702156d50398f8a667ee9 in}"
+I[2021-10-08|09:27:16.160] Added peer                                   module=p2p peer="Peer{mconn://192.167.10.2:58178 4673a39792f0206653e702156d50398f8a667ee9 in}"
+I[2021-10-08|09:27:16.512] Starting baseWAL service                     module=consensus wal=/tendermint/node3/data/cs.wal/wal impl=baseWAL
+I[2021-10-08|09:27:16.516] Starting Group service                       module=consensus wal=/tendermint/node3/data/cs.wal/wal impl=Group
+I[2021-10-08|09:27:16.523] Searching for height                         module=consensus wal=/tendermint/node3/data/cs.wal/wal height=1 min=0 max=0
+I[2021-10-08|09:27:16.611] Searching for height                         module=consensus wal=/tendermint/node3/data/cs.wal/wal height=0 min=0 max=0
+I[2021-10-08|09:27:16.649] Found                                        module=consensus wal=/tendermint/node3/data/cs.wal/wal height=0 index=0
+I[2021-10-08|09:27:16.649] Catchup by replaying consensus messages      module=consensus height=1
+I[2021-10-08|09:27:16.649] Replay: Done                                 module=consensus 
+I[2021-10-08|09:27:16.682] Starting TimeoutTicker service               module=consensus impl=TimeoutTicker
+I[2021-10-08|09:27:16.682] Timed out                                    module=consensus dur=-13.1273265s height=1 round=0 step=RoundStepNewHeight
+I[2021-10-08|09:27:16.995] signed proposal                              module=consensus height=1 round=0 proposal="Proposal{1/0 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, -1) 2B10F4E95F99 @ 2021-10-08T09:27:16.8071806Z}"
+I[2021-10-08|09:27:17.018] received proposal and yet to check           module=consensus proposal="Proposal{1/0 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, -1) 2B10F4E95F99 @ 2021-10-08T09:27:16.8071806Z}"
+I[2021-10-08|09:27:17.018] received proposal                            module=consensus proposal="Proposal{1/0 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, -1) 2B10F4E95F99 @ 2021-10-08T09:27:16.8071806Z}"
+I[2021-10-08|09:27:17.031] received complete proposal block             module=consensus height=1 hash=9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61
+I[2021-10-08|09:27:17.031] Signing vote                                 module=consensus pubkey-addr=7D9E80876EBEFE87311D2EC9468521077676BCCB
+I[2021-10-08|09:27:17.099] signed and pushed vote                       module=consensus height=1 round=0 vote="Vote{0:7D9E80876EBE 1/00/SIGNED_MSG_TYPE_PREVOTE(Prevote) 9307EADFBE73 A975EE8106A3 @ 2021-10-08T09:27:17.031607Z}"
+I[2021-10-08|09:27:19.031] added vote to precommit                      module=consensus vote="Vote{1:9563D48F2EE3 1/00/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 9307EADFBE73 99B979F69535 @ 2021-10-08T09:27:18.3490447Z}" precommits="VoteSet{H:1 R:0 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.25) BA{4:_x__} map[]}"
+I[2021-10-08|09:27:19.422] added vote to precommit                      module=consensus vote="Vote{2:96FFD4C70C3D 1/00/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 9307EADFBE73 7F0D7642FD6F @ 2021-10-08T09:27:19.112427Z}" precommits="VoteSet{H:1 R:0 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.5) BA{4:_xx_} map[]}"
+I[2021-10-08|09:27:21.238] Timed out                                    module=consensus dur=3s height=1 round=0 step=RoundStepPrevoteWait
+I[2021-10-08|09:27:21.247] Signing vote                                 module=consensus pubkey-addr=7D9E80876EBEFE87311D2EC9468521077676BCCB
+I[2021-10-08|09:27:21.302] signed and pushed vote                       module=consensus height=1 round=0 vote="Vote{0:7D9E80876EBE 1/00/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 000000000000 81DB1B72BD7C @ 2021-10-08T09:27:21.2470177Z}"
+I[2021-10-08|09:27:21.337] added vote to precommit                      module=consensus vote="Vote{0:7D9E80876EBE 1/00/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 000000000000 81DB1B72BD7C @ 2021-10-08T09:27:21.2470177Z}" precommits="VoteSet{H:1 R:0 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.75) BA{4:xxx_} map[]}"
+I[2021-10-08|09:27:21.539] added vote to precommit                      module=consensus vote="Vote{3:F1CB8441C6E4 1/00/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 000000000000 63D17E357215 @ 2021-10-08T09:27:21.2707412Z}" precommits="VoteSet{H:1 R:0 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(1) BA{4:xxxx} map[]}"
+I[2021-10-08|09:27:24.339] Timed out                                    module=consensus dur=3s height=1 round=0 step=RoundStepPrecommitWait
+I[2021-10-08|09:27:24.950] received proposal and yet to check           module=consensus proposal="Proposal{1/1 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, 0) B92B3A54A215 @ 2021-10-08T09:27:24.6827262Z}"
+I[2021-10-08|09:27:24.951] received proposal                            module=consensus proposal="Proposal{1/1 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, 0) B92B3A54A215 @ 2021-10-08T09:27:24.6827262Z}"
+I[2021-10-08|09:27:25.235] received proposal and yet to check           module=consensus proposal="Proposal{1/1 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, 0) B92B3A54A215 @ 2021-10-08T09:27:24.6827262Z}"
+I[2021-10-08|09:27:25.344] received complete proposal block             module=consensus height=1 hash=9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61
+I[2021-10-08|09:27:25.690] received proposal and yet to check           module=consensus proposal="Proposal{1/1 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, 0) B92B3A54A215 @ 2021-10-08T09:27:24.6827262Z}"
+E[2021-10-08|09:27:25.954] failed attempting to add vote                module=consensus err="failed to verify vote with ChainID chain-ELX4gc and PubKey PubKeyEd25519{711590A17CC69CAEECE80BFE9C0F5C31480699DC1069B89339F67CF18A48614C}: invalid signature"
+E[2021-10-08|09:27:25.957] failed to process message                    module=consensus height=1 round=1 peer=6d0f48d4bcf87d44392f21aba5f6eef2671cc768 err="error adding vote" msg="[Vote Vote{3:F1CB8441C6E4 1/00/SIGNED_MSG_TYPE_PREVOTE(Prevote) 000000000000 314731AA3DC4 @ 2021-10-08T09:27:17.4785762Z}]"
+E[2021-10-08|09:27:26.232] failed attempting to add vote                module=consensus err="failed to verify vote with ChainID chain-ELX4gc and PubKey PubKeyEd25519{5B7BFE314A2930A779D9AE6E56940B95BE774AB8E668DE4230C84D8F9BA673CF}: invalid signature"
+E[2021-10-08|09:27:26.235] failed to process message                    module=consensus height=1 round=1 peer=6d0f48d4bcf87d44392f21aba5f6eef2671cc768 err="error adding vote" msg="[Vote Vote{0:7D9E80876EBE 1/00/SIGNED_MSG_TYPE_PREVOTE(Prevote) 000000000000 EDE80ECFA1A6 @ 2021-10-08T09:27:17.031607Z}]"
+I[2021-10-08|09:27:29.814] Timed out                                    module=consensus dur=5.5s height=1 round=1 step=RoundStepPropose
+I[2021-10-08|09:27:29.824] Signing vote                                 module=consensus pubkey-addr=7D9E80876EBEFE87311D2EC9468521077676BCCB
+I[2021-10-08|09:27:29.852] signed and pushed vote                       module=consensus height=1 round=1 vote="Vote{0:7D9E80876EBE 1/01/SIGNED_MSG_TYPE_PREVOTE(Prevote) 9307EADFBE73 C03352BCAF5A @ 2021-10-08T09:27:29.8244396Z}"
+I[2021-10-08|09:27:30.642] added vote to precommit                      module=consensus vote="Vote{1:9563D48F2EE3 1/01/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 9307EADFBE73 A798E302E6FE @ 2021-10-08T09:27:30.2515009Z}" precommits="VoteSet{H:1 R:1 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.25) BA{4:_x__} map[]}"
+I[2021-10-08|09:27:31.247] added vote to precommit                      module=consensus vote="Vote{2:96FFD4C70C3D 1/01/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 9307EADFBE73 D87B2968BECE @ 2021-10-08T09:27:30.4755536Z}" precommits="VoteSet{H:1 R:1 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.5) BA{4:_xx_} map[]}"
+I[2021-10-08|09:27:33.575] Ensure peers                                 module=pex numOutPeers=1 numInPeers=2 numDialing=0 numToDial=9
+I[2021-10-08|09:27:33.576] Will dial address                            module=pex addr=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656
+I[2021-10-08|09:27:33.576] We need more addresses. Sending pexRequest to random peer module=pex peer="Peer{mconn://192.167.10.2:58178 4673a39792f0206653e702156d50398f8a667ee9 in}"
+I[2021-10-08|09:27:33.577] Dialing peer                                 module=p2p address=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656
+I[2021-10-08|09:27:33.605] Timed out                                    module=consensus dur=3.5s height=1 round=1 step=RoundStepPrevoteWait
+I[2021-10-08|09:27:33.616] Signing vote                                 module=consensus pubkey-addr=7D9E80876EBEFE87311D2EC9468521077676BCCB
+I[2021-10-08|09:27:33.628] Starting MConnection service                 module=p2p peer=mconn://d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656 impl=MConn{192.167.10.5:26656}
+I[2021-10-08|09:27:33.631] Stopping MConnection service                 module=p2p peer=mconn://d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656 impl=MConn{192.167.10.5:26656}
+I[2021-10-08|09:27:33.631] Remove address from book                     module=p2p book=/tendermint/node3/config/addrbook.json addr=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656
+I[2021-10-08|09:27:33.631] Add our address to book                      module=p2p book=/tendermint/node3/config/addrbook.json addr=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656
+E[2021-10-08|09:27:33.631] dialing failed (attempts: 1): self ID<d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f> module=pex addr=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656
+I[2021-10-08|09:27:33.631] Starting MConnection service                 module=p2p peer=mconn://d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:44104 impl=MConn{192.167.10.5:44104}
+I[2021-10-08|09:27:33.631] Stopping MConnection service                 module=p2p peer=mconn://d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:44104 impl=MConn{192.167.10.5:44104}
+I[2021-10-08|09:27:33.633] Add our address to book                      module=p2p book=/tendermint/node3/config/addrbook.json addr=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:44104
+I[2021-10-08|09:27:33.633] Inbound Peer rejected                        module=p2p err="self ID<d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f>" numPeers=3
+I[2021-10-08|09:27:33.666] signed and pushed vote                       module=consensus height=1 round=1 vote="Vote{0:7D9E80876EBE 1/01/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 000000000000 101FA47A8764 @ 2021-10-08T09:27:33.6160759Z}"
+I[2021-10-08|09:27:33.684] added vote to precommit                      module=consensus vote="Vote{0:7D9E80876EBE 1/01/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 000000000000 101FA47A8764 @ 2021-10-08T09:27:33.6160759Z}" precommits="VoteSet{H:1 R:1 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.75) BA{4:xxx_} map[]}"
+I[2021-10-08|09:27:34.248] added vote to precommit                      module=consensus vote="Vote{3:F1CB8441C6E4 1/01/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 000000000000 1C73ADDFA31C @ 2021-10-08T09:27:33.6573384Z}" precommits="VoteSet{H:1 R:1 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(1) BA{4:xxxx} map[]}"
+I[2021-10-08|09:27:37.204] Timed out                                    module=consensus dur=3.5s height=1 round=1 step=RoundStepPrecommitWait
+I[2021-10-08|09:27:37.652] received proposal and yet to check           module=consensus proposal="Proposal{1/2 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, 1) ABEA2E1E1405 @ 2021-10-08T09:27:37.3965595Z}"
+I[2021-10-08|09:27:37.652] received proposal                            module=consensus proposal="Proposal{1/2 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, 1) ABEA2E1E1405 @ 2021-10-08T09:27:37.3965595Z}"
+I[2021-10-08|09:27:38.120] received complete proposal block             module=consensus height=1 hash=9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61
+I[2021-10-08|09:27:38.464] received proposal and yet to check           module=consensus proposal="Proposal{1/2 (9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D, 1) ABEA2E1E1405 @ 2021-10-08T09:27:37.3965595Z}"
+I[2021-10-08|09:27:38.817] Signing vote                                 module=consensus pubkey-addr=7D9E80876EBEFE87311D2EC9468521077676BCCB
+I[2021-10-08|09:27:38.973] signed and pushed vote                       module=consensus height=1 round=2 vote="Vote{0:7D9E80876EBE 1/02/SIGNED_MSG_TYPE_PREVOTE(Prevote) 9307EADFBE73 B066BE43D7C6 @ 2021-10-08T09:27:38.8170681Z}"
+I[2021-10-08|09:27:39.933] Signing vote                                 module=consensus pubkey-addr=7D9E80876EBEFE87311D2EC9468521077676BCCB
+I[2021-10-08|09:27:40.386] signed and pushed vote                       module=consensus height=1 round=2 vote="Vote{0:7D9E80876EBE 1/02/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 9307EADFBE73 2A22F1B25E0A @ 2021-10-08T09:27:39.9337881Z}"
+I[2021-10-08|09:27:40.828] added vote to precommit                      module=consensus vote="Vote{0:7D9E80876EBE 1/02/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 9307EADFBE73 2A22F1B25E0A @ 2021-10-08T09:27:39.9337881Z}" precommits="VoteSet{H:1 R:2 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.25) BA{4:x___} map[]}"
+I[2021-10-08|09:27:40.840] added vote to precommit                      module=consensus vote="Vote{2:96FFD4C70C3D 1/02/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 9307EADFBE73 CC1B648509CC @ 2021-10-08T09:27:40.0200434Z}" precommits="VoteSet{H:1 R:2 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.5) BA{4:x_x_} map[]}"
+I[2021-10-08|09:27:41.651] added vote to precommit                      module=consensus vote="Vote{3:F1CB8441C6E4 1/02/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) 9307EADFBE73 F76CFAE7053C @ 2021-10-08T09:27:39.7196318Z}" precommits="VoteSet{H:1 R:2 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61:1:C714CF28CE4D(0.75) BA{4:x_xx} map[]}"
+I[2021-10-08|09:27:42.386] finalizing commit of block                   module=consensus height=1 hash=9307EADFBE7316C3B773E3C0D737F910F685FFEC6147AC46C1279A4EDCA2CF61 root= num_txs=0
+I[2021-10-08|09:27:42.791] Executed block                               module=state height=1 validTxs=0 invalidTxs=0
+I[2021-10-08|09:27:42.920] Committed state                              module=state height=1 txs=0 appHash=0000000000000000
+I[2021-10-08|09:27:42.974] Indexed block                                module=txindex height=1
+I[2021-10-08|09:27:43.006] Timed out                                    module=consensus dur=-344.6524ms height=2 round=0 step=RoundStepNewHeight
+I[2021-10-08|09:27:43.809] received proposal and yet to check           module=consensus proposal="Proposal{2/0 (F56A66F0ADC42A29D57195CA1935E83F608BAB2558B96F43A48838F52A956930:1:A7499F2FDAEB, -1) 1A42E3907313 @ 2021-10-08T09:27:42.5064149Z}"
+I[2021-10-08|09:27:43.916] received proposal                            module=consensus proposal="Proposal{2/0 (F56A66F0ADC42A29D57195CA1935E83F608BAB2558B96F43A48838F52A956930:1:A7499F2FDAEB, -1) 1A42E3907313 @ 2021-10-08T09:27:42.5064149Z}"
+I[2021-10-08|09:27:43.938] received complete proposal block             module=consensus height=2 hash=F56A66F0ADC42A29D57195CA1935E83F608BAB2558B96F43A48838F52A956930
+I[2021-10-08|09:27:44.133] Signing vote                                 module=consensus pubkey-addr=7D9E80876EBEFE87311D2EC9468521077676BCCB
+I[2021-10-08|09:27:44.392] signed and pushed vote                       module=consensus height=2 round=0 vote="Vote{0:7D9E80876EBE 2/00/SIGNED_MSG_TYPE_PREVOTE(Prevote) F56A66F0ADC4 AD129F3AB4B8 @ 2021-10-08T09:27:44.133816Z}"
+I[2021-10-08|09:27:44.558] received proposal and yet to check           module=consensus proposal="Proposal{2/0 (F56A66F0ADC42A29D57195CA1935E83F608BAB2558B96F43A48838F52A956930:1:A7499F2FDAEB, -1) 1A42E3907313 @ 2021-10-08T09:27:42.5064149Z}"
+I[2021-10-08|09:27:44.822] Signing vote                                 module=consensus pubkey-addr=7D9E80876EBEFE87311D2EC9468521077676BCCB
+I[2021-10-08|09:27:44.961] signed and pushed vote                       module=consensus height=2 round=0 vote="Vote{0:7D9E80876EBE 2/00/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) F56A66F0ADC4 487A5ADAB839 @ 2021-10-08T09:27:44.8099843Z}"
+I[2021-10-08|09:27:45.015] received proposal and yet to check           module=consensus proposal="Proposal{2/0 (F56A66F0ADC42A29D57195CA1935E83F608BAB2558B96F43A48838F52A956930:1:A7499F2FDAEB, -1) 1A42E3907313 @ 2021-10-08T09:27:42.5064149Z}"
+I[2021-10-08|09:27:45.036] added vote to precommit                      module=consensus vote="Vote{0:7D9E80876EBE 2/00/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) F56A66F0ADC4 487A5ADAB839 @ 2021-10-08T09:27:44.8099843Z}" precommits="VoteSet{H:2 R:0 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.25) BA{4:x___} map[]}"
+I[2021-10-08|09:27:45.377] Received directive                           module=p2p directive=RESTART
+I[2021-10-08|09:27:45.377] Restarting node                              module=main 
+I[2021-10-08|09:27:45.377] Stopping node                                module=main 
+I[2021-10-08|09:27:45.377] Stopping Node service                        module=main impl=Node
+I[2021-10-08|09:27:45.377] Stopping Node                                module=main 
+I[2021-10-08|09:27:45.377] Stopping EventBus service                    module=events impl=EventBus
+I[2021-10-08|09:27:45.377] Stopping PubSub service                      module=pubsub impl=PubSub
+I[2021-10-08|09:27:45.377] Stopping IndexerService service              module=txindex impl=IndexerService
+I[2021-10-08|09:27:45.379] Stopping Blockchain service                  module=blockchain impl=Blockchain
+E[2021-10-08|09:27:45.379] failed to stop pool                          module=blockchain err="already stopped"
+I[2021-10-08|09:27:45.380] added vote to precommit                      module=consensus vote="Vote{2:96FFD4C70C3D 2/00/SIGNED_MSG_TYPE_PRECOMMIT(Precommit) F56A66F0ADC4 1F9F8FE00CE0 @ 2021-10-08T09:27:44.542553Z}" precommits="VoteSet{H:2 R:0 T:SIGNED_MSG_TYPE_PRECOMMIT +2/3:<nil>(0.5) BA{4:x_x_} map[]}"
+I[2021-10-08|09:27:45.383] Stopping Consensus service                   module=consensus impl=ConsensusReactor
+I[2021-10-08|09:27:45.383] Stopping State service                       module=consensus impl=ConsensusState
+I[2021-10-08|09:27:45.383] Stopping TimeoutTicker service               module=consensus impl=TimeoutTicker
+I[2021-10-08|09:27:45.383] Stopping baseWAL service                     module=consensus wal=/tendermint/node3/data/cs.wal/wal impl=baseWAL
+I[2021-10-08|09:27:45.494] Stopping Group service                       module=consensus wal=/tendermint/node3/data/cs.wal/wal impl=Group
+I[2021-10-08|09:27:45.897] Connection is closed @ recvRoutine (likely by the other side) module=p2p peer=mconn://b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:34940 conn=MConn{192.167.10.4:34940}
+I[2021-10-08|09:27:45.897] Stopping MConnection service                 module=p2p peer=mconn://b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:34940 impl=MConn{192.167.10.4:34940}
+I[2021-10-08|09:27:46.969] Starting MConnection service                 module=p2p peer=mconn://b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:42874 impl=MConn{192.167.10.4:42874}
+I[2021-10-08|09:27:46.969] Stopping MConnection service                 module=p2p peer=mconn://b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:42874 impl=MConn{192.167.10.4:42874}
+I[2021-10-08|09:27:46.969] Ignoring inbound connection: error while adding peer module=p2p err="duplicate ID<b4c016b041e89b18034672d74a9d64745cf070f3>" id=b4c016b041e89b18034672d74a9d64745cf070f3
+I[2021-10-08|09:27:49.036] Stopping StateSync service                   module=statesync impl=StateSync
+I[2021-10-08|09:27:49.036] Stopping Mempool service                     module=mempool impl=Mempool
+I[2021-10-08|09:27:49.036] Stopping Evidence service                    module=evidence impl=Evidence
+I[2021-10-08|09:27:49.040] Stopping P2P Switch service                  module=p2p impl="P2P Switch"
+I[2021-10-08|09:27:49.040] Stopping Peer service                        module=p2p peer=6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 impl="Peer{mconn://192.167.10.3:26656 6d0f48d4bcf87d44392f21aba5f6eef2671cc768 out}"
+I[2021-10-08|09:27:49.040] Stopping MConnection service                 module=p2p peer=mconn://6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 impl=MConn{192.167.10.3:26656}
+I[2021-10-08|09:27:49.055] Stopping Peer service                        module=p2p peer=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:34940 impl="Peer{mconn://192.167.10.4:34940 b4c016b041e89b18034672d74a9d64745cf070f3 in}"
+I[2021-10-08|09:27:49.082] Stopping Peer service                        module=p2p peer=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:58178 impl="Peer{mconn://192.167.10.2:58178 4673a39792f0206653e702156d50398f8a667ee9 in}"
+I[2021-10-08|09:27:49.082] Stopping MConnection service                 module=p2p peer=mconn://4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:58178 impl=MConn{192.167.10.2:58178}
+I[2021-10-08|09:27:49.083] Stopping BlockchainShim service              module=blockchain impl=BlockchainShim
+I[2021-10-08|09:27:49.083] Stopping ConsensusShim service               module=consensus impl=ConsensusShim
+I[2021-10-08|09:27:49.084] Stopping EvidenceShim service                module=evidence impl=EvidenceShim
+I[2021-10-08|09:27:49.084] Stopping StateSyncShim service               module=statesync impl=StateSyncShim
+I[2021-10-08|09:27:49.084] Stopping PEX service                         module=pex impl=PEX
+I[2021-10-08|09:27:49.084] Stopping AddrBook service                    module=p2p book=/tendermint/node3/config/addrbook.json impl=AddrBook
+I[2021-10-08|09:27:49.084] Stopping MempoolShim service                 module=mempool impl=MempoolShim
+I[2021-10-08|09:27:49.084] Closing rpc listener                         module=main listener="&{Listener:0xc0000aa6a8 sem:0xc0001b8780 closeOnce:{done:0 m:{state:0 sema:0}} done:0xc0001b87e0}"
+I[2021-10-08|09:27:49.084] Saving AddrBook to file                      module=p2p book=/tendermint/node3/config/addrbook.json size=3
+I[2021-10-08|09:27:49.086] RPC HTTP server stopped                      module=rpc-server err="accept tcp [::]:26657: use of closed network connection"
+E[2021-10-08|09:27:49.086] Error serving server                         module=main err="accept tcp [::]:26657: use of closed network connection"
+I[2021-10-08|09:27:51.012] Starting multiAppConn service                module=proxy impl=multiAppConn
+I[2021-10-08|09:27:51.012] Starting localClient service                 module=abci-client connection=query impl=localClient
+I[2021-10-08|09:27:51.012] Starting localClient service                 module=abci-client connection=snapshot impl=localClient
+I[2021-10-08|09:27:51.013] Starting localClient service                 module=abci-client connection=mempool impl=localClient
+I[2021-10-08|09:27:51.013] Starting localClient service                 module=abci-client connection=consensus impl=localClient
+I[2021-10-08|09:27:51.014] Starting EventBus service                    module=events impl=EventBus
+I[2021-10-08|09:27:51.014] Starting PubSub service                      module=pubsub impl=PubSub
+I[2021-10-08|09:27:51.742] Starting IndexerService service              module=txindex impl=IndexerService
+I[2021-10-08|09:27:51.743] ABCI Handshake App Info                      module=consensus height=0 hash= software-version=0.17.0 protocol-version=1
+I[2021-10-08|09:27:51.743] ABCI Replay Blocks                           module=consensus appHeight=0 storeHeight=0 stateHeight=0
+I[2021-10-08|09:27:51.763] Completed ABCI Handshake - Tendermint and App are synced module=consensus appHeight=0 appHash=
+I[2021-10-08|09:27:51.767] Version info                                 module=main software=unreleased-pct-instrumentation-unblock-test-98c96f695cd1ce58762c068c21063fd8b3f430b0 block=11 p2p=8
+I[2021-10-08|09:27:51.767] This node is a validator                     module=consensus addr=7D9E80876EBEFE87311D2EC9468521077676BCCB pubKey=PubKeyEd25519{5B7BFE314A2930A779D9AE6E56940B95BE774AB8E668DE4230C84D8F9BA673CF}
+I[2021-10-08|09:27:52.600] P2P Node ID                                  module=p2p ID=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f file=/tendermint/node3/config/node_key.json
+I[2021-10-08|09:27:52.600] Adding persistent peers                      module=p2p addrs="[4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656 6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656 d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@192.167.10.5:26656]"
+I[2021-10-08|09:27:52.601] Adding unconditional peer ids                module=p2p ids=[]
+I[2021-10-08|09:27:52.601] Add our address to book                      module=p2p book=/tendermint/node3/config/addrbook.json addr=d76310256a5a8e4bf065af6b1154cd1fa0a1eb2f@0.0.0.0:26656
+I[2021-10-08|09:27:52.601] Created node                                 module=main 
+I[2021-10-08|09:27:52.601] Starting node                                module=main 
+I[2021-10-08|09:27:52.601] Starting Node service                        module=main impl=Node
+I[2021-10-08|09:27:52.601] p2p service                                  module=main legacy_enabled=true
+I[2021-10-08|09:27:52.601] Starting P2P Switch service                  module=p2p impl="P2P Switch"
+I[2021-10-08|09:27:52.601] Starting MempoolShim service                 module=mempool impl=MempoolShim
+I[2021-10-08|09:27:52.601] Starting BlockchainShim service              module=blockchain impl=BlockchainShim
+I[2021-10-08|09:27:52.601] Starting ConsensusShim service               module=consensus impl=ConsensusShim
+I[2021-10-08|09:27:52.601] Starting EvidenceShim service                module=evidence impl=EvidenceShim
+I[2021-10-08|09:27:52.601] Starting StateSyncShim service               module=statesync impl=StateSyncShim
+I[2021-10-08|09:27:52.602] Starting PEX service                         module=pex impl=PEX
+I[2021-10-08|09:27:52.602] Starting AddrBook service                    module=p2p book=/tendermint/node3/config/addrbook.json impl=AddrBook
+I[2021-10-08|09:27:52.605] Starting pprof server                        module=main laddr=:6060
+E[2021-10-08|09:27:52.605] pprof server error                           module=main err="listen tcp :6060: bind: address already in use"
+I[2021-10-08|09:27:52.605] Starting RPC HTTP server on [::]:26657       module=rpc-server 
+I[2021-10-08|09:27:52.668] Starting Blockchain service                  module=blockchain impl=Blockchain
+I[2021-10-08|09:27:52.668] Starting BlockPool service                   module=blockpool impl=BlockPool
+I[2021-10-08|09:27:52.668] Starting Consensus service                   module=consensus impl=ConsensusReactor
+I[2021-10-08|09:27:52.669] Starting StateSync service                   module=statesync impl=StateSync
+I[2021-10-08|09:27:52.669] Starting Mempool service                     module=mempool impl=Mempool
+I[2021-10-08|09:27:52.669] Starting Evidence service                    module=evidence impl=Evidence
+I[2021-10-08|09:27:52.669] Saving AddrBook to file                      module=p2p book=/tendermint/node3/config/addrbook.json size=3
+I[2021-10-08|09:27:52.669] Ensure peers                                 module=pex numOutPeers=0 numInPeers=0 numDialing=0 numToDial=10
+I[2021-10-08|09:27:52.789] Will dial address                            module=pex addr=6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656
+I[2021-10-08|09:27:52.789] Will dial address                            module=pex addr=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656
+I[2021-10-08|09:27:52.789] Will dial address                            module=pex addr=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656
+I[2021-10-08|09:27:52.789] Dialing peer                                 module=p2p address=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656
+I[2021-10-08|09:27:52.797] Dialing peer                                 module=p2p address=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656
+I[2021-10-08|09:27:52.799] Dialing peer                                 module=p2p address=6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656
+I[2021-10-08|09:27:52.818] Starting MConnection service                 module=p2p peer=mconn://4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656 impl=MConn{192.167.10.2:26656}
+I[2021-10-08|09:27:52.818] Starting Peer service                        module=p2p peer=4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656 impl="Peer{mconn://192.167.10.2:26656 4673a39792f0206653e702156d50398f8a667ee9 out}"
+I[2021-10-08|09:27:52.818] Added peer                                   module=p2p peer="Peer{mconn://192.167.10.2:26656 4673a39792f0206653e702156d50398f8a667ee9 out}"
+I[2021-10-08|09:27:52.936] Starting MConnection service                 module=p2p peer=mconn://6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 impl=MConn{192.167.10.3:26656}
+I[2021-10-08|09:27:52.940] Starting Peer service                        module=p2p peer=6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 impl="Peer{mconn://192.167.10.3:26656 6d0f48d4bcf87d44392f21aba5f6eef2671cc768 out}"
+I[2021-10-08|09:27:53.010] Starting MConnection service                 module=p2p peer=mconn://b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656 impl=MConn{192.167.10.4:26656}
+I[2021-10-08|09:27:53.010] Starting Peer service                        module=p2p peer=b4c016b041e89b18034672d74a9d64745cf070f3@192.167.10.4:26656 impl="Peer{mconn://192.167.10.4:26656 b4c016b041e89b18034672d74a9d64745cf070f3 out}"
+I[2021-10-08|09:27:53.011] Added peer                                   module=p2p peer="Peer{mconn://192.167.10.4:26656 b4c016b041e89b18034672d74a9d64745cf070f3 out}"
+I[2021-10-08|09:27:52.947] Added peer                                   module=p2p peer="Peer{mconn://192.167.10.3:26656 6d0f48d4bcf87d44392f21aba5f6eef2671cc768 out}"
+I[2021-10-08|09:27:53.531] Starting MConnection service                 module=p2p peer=mconn://4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:37758 impl=MConn{192.167.10.2:37758}
+E[2021-10-08|09:27:53.531] Won't start a peer - switch is not running   module=p2p peer="Peer{mconn://192.167.10.2:37758 4673a39792f0206653e702156d50398f8a667ee9 in}"
+I[2021-10-08|09:27:53.672] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=58.9962232s
+I[2021-10-08|09:27:53.994] Starting MConnection service                 module=p2p peer=mconn://6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:46838 impl=MConn{192.167.10.3:46838}
+I[2021-10-08|09:27:53.995] Stopping MConnection service                 module=p2p peer=mconn://6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:46838 impl=MConn{192.167.10.3:46838}
+I[2021-10-08|09:27:53.999] Ignoring inbound connection: error while adding peer module=p2p err="duplicate ID<6d0f48d4bcf87d44392f21aba5f6eef2671cc768>" id=6d0f48d4bcf87d44392f21aba5f6eef2671cc768
+I[2021-10-08|09:27:54.682] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=57.9867073s
+I[2021-10-08|09:27:55.672] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=56.9968263s
+I[2021-10-08|09:27:56.678] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=55.9908172s
+I[2021-10-08|09:27:57.641] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=54.9928419s
+I[2021-10-08|09:27:58.651] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=53.9829143s
+I[2021-10-08|09:27:59.638] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=52.9964698s
+I[2021-10-08|09:28:00.652] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=51.9820806s
+I[2021-10-08|09:28:01.637] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=50.9970094s
+I[2021-10-08|09:28:02.656] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=49.9782855s
+I[2021-10-08|09:28:03.637] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=48.9977936s
+I[2021-10-08|09:28:04.637] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=47.9969643s
+I[2021-10-08|09:28:05.640] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=46.9944966s
+I[2021-10-08|09:28:06.637] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=45.9978157s
+I[2021-10-08|09:28:07.652] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=44.9824968s
+I[2021-10-08|09:28:08.652] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=43.9818671s
+I[2021-10-08|09:28:09.638] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=42.9964639s
+I[2021-10-08|09:28:10.648] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=41.9862796s
+I[2021-10-08|09:28:11.638] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=40.9966116s
+I[2021-10-08|09:28:12.653] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=39.9814186s
+I[2021-10-08|09:28:13.639] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=38.9951816s
+I[2021-10-08|09:28:14.648] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=37.9863059s
+I[2021-10-08|09:28:15.645] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=36.9897661s
+I[2021-10-08|09:28:16.648] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=35.9863522s
+I[2021-10-08|09:28:17.638] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=34.9964235s
+I[2021-10-08|09:28:18.520] Connection is closed @ recvRoutine (likely by the other side) module=p2p peer=mconn://6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 conn=MConn{192.167.10.3:26656}
+I[2021-10-08|09:28:18.520] Stopping MConnection service                 module=p2p peer=mconn://6d0f48d4bcf87d44392f21aba5f6eef2671cc768@192.167.10.3:26656 impl=MConn{192.167.10.3:26656}
+I[2021-10-08|09:28:18.640] not caught up yet                            module=blockchain height=1 max_peer_height=0 timeout_in=33.9947159s
+I[2021-10-08|09:28:18.784] Connection is closed @ recvRoutine (likely by the other side) module=p2p peer=mconn://4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656 conn=MConn{192.167.10.2:26656}
+I[2021-10-08|09:28:18.784] Stopping MConnection service                 module=p2p peer=mconn://4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:26656 impl=MConn{192.167.10.2:26656}
+I[2021-10-08|09:28:18.786] Connection is closed @ recvRoutine (likely by the other side) module=p2p peer=mconn://4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:37758 conn=MConn{192.167.10.2:37758}
+I[2021-10-08|09:28:18.786] Stopping MConnection service                 module=p2p peer=mconn://4673a39792f0206653e702156d50398f8a667ee9@192.167.10.2:37758 impl=MConn{192.167.10.2:37758}

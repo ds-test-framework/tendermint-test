@@ -16,13 +16,13 @@ var (
 	stateLockedValue = "lockedValue"
 	stateRound1      = "round1"
 	stateForceRelock = "forceRelock"
-	stateRelocked    = "relocked"
+	// stateRelocked    = "relocked"
 )
 
 type testCaseThreeFilters struct{}
 
 func (testCaseThreeFilters) faultyVoteFilter(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return []*types.Message{}, false
 	}
@@ -66,17 +66,9 @@ func (testCaseThreeFilters) faultyVoteFilter(c *smlib.Context) ([]*types.Message
 }
 
 func (testCaseThreeFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return []*types.Message{}, false
-	}
-
-	if tMsg.Type == util.Proposal {
-		blockID, ok := util.GetProposalBlockIDS(tMsg)
-		if ok {
-			c.Vars.Set("oldProposal", blockID)
-		}
-		return []*types.Message{tMsg.SchedulerMessage}, true
 	}
 
 	_, round := util.ExtractHR(tMsg)
@@ -86,30 +78,28 @@ func (testCaseThreeFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
 	if round != 0 {
 		return []*types.Message{}, false
 	}
-
-	if tMsg.Type != util.Prevote {
+	if tMsg.Type == util.Proposal {
+		blockID, ok := util.GetProposalBlockIDS(tMsg)
+		if ok {
+			c.Vars.Set("oldProposal", blockID)
+		}
 		return []*types.Message{tMsg.SchedulerMessage}, true
 	}
 
 	partition := getReplicaPartition(c.Context)
-	honestDelayed, _ := partition.GetPart("faulty")
+	honestDelayed, _ := partition.GetPart("honestDelayed")
 
-	if honestDelayed.Contains(tMsg.From) {
+	if honestDelayed.Contains(tMsg.From) && tMsg.Type == util.Prevote {
 		return []*types.Message{}, true
 	}
 	return []*types.Message{tMsg.SchedulerMessage}, true
 }
 
 func (testCaseThreeFilters) higherRound(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return []*types.Message{}, false
 	}
-
-	if tMsg.Type != util.Proposal {
-		return []*types.Message{tMsg.SchedulerMessage}, true
-	}
-
 	_, round := util.ExtractHR(tMsg)
 	if round == -1 {
 		return []*types.Message{tMsg.SchedulerMessage}, true
@@ -118,14 +108,13 @@ func (testCaseThreeFilters) higherRound(c *smlib.Context) ([]*types.Message, boo
 		return []*types.Message{}, false
 	}
 
-	curState := c.StateMachine.CurState()
-	if curState.Is(stateForceRelock) || curState.Is(stateRelocked) {
-		return []*types.Message{}, false
+	if tMsg.Type != util.Proposal {
+		return []*types.Message{tMsg.SchedulerMessage}, true
 	}
 
-	curRound, ok := c.Vars.GetInt("curRound")
-	if !ok || round > curRound {
-		c.Vars.Set("curRound", round)
+	curState := c.StateMachine.CurState()
+	if curState.Is(stateForceRelock) {
+		return []*types.Message{}, false
 	}
 
 	blockID, ok := util.GetProposalBlockID(tMsg)
@@ -147,7 +136,7 @@ func (testCaseThreeFilters) higherRound(c *smlib.Context) ([]*types.Message, boo
 type testCaseThreeCond struct{}
 
 func (testCaseThreeCond) diffProposal(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return false
 	}
@@ -155,17 +144,24 @@ func (testCaseThreeCond) diffProposal(c *smlib.Context) bool {
 	if tMsg.Type != util.Proposal {
 		return false
 	}
-	blockID, ok := util.GetProposalBlockIDS(tMsg)
+	blockIDS, ok := util.GetProposalBlockIDS(tMsg)
 	if !ok {
 		return false
 	}
 	oldProposal, _ := c.Vars.GetString("oldProposal")
-	return blockID != oldProposal
-
+	if blockIDS != oldProposal {
+		blockID, ok := util.GetProposalBlockID(tMsg)
+		if ok {
+			c.Vars.Set("newPropBlockID", blockID)
+		}
+		c.Vars.Set("newProposal", blockIDS)
+		return true
+	}
+	return false
 }
 
 func (testCaseThreeCond) nextRound(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return false
 	}
@@ -186,7 +182,7 @@ func (testCaseThreeCond) nextRound(c *smlib.Context) bool {
 
 	skipped := 0
 	for _, r := range nextRoundCount {
-		if r >= curRound {
+		if r > curRound {
 			skipped++
 		}
 	}
@@ -198,17 +194,18 @@ func (testCaseThreeCond) nextRound(c *smlib.Context) bool {
 }
 
 func (testCaseThreeCond) oldVote(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return false
 	}
-	if tMsg.Type != util.Prevote {
+	if tMsg.Type != util.Precommit {
 		return false
 	}
 	partition := getReplicaPartition(c.Context)
 	honestDelayed, _ := partition.GetPart("honestDelayed")
+	replica, _ := c.Replicas.Get(tMsg.From)
 
-	if !honestDelayed.Contains(tMsg.From) {
+	if !honestDelayed.Contains(tMsg.From) || !util.IsVoteFrom(tMsg, replica) {
 		return false
 	}
 
@@ -218,21 +215,27 @@ func (testCaseThreeCond) oldVote(c *smlib.Context) bool {
 	if !ok {
 		return false
 	}
+	c.Vars.Set("blockVote", blockID)
+	c.Logger().With(log.LogParams{
+		"cur_vote":     blockID,
+		"old_proposal": oldProposal,
+	}).Info("Checking vote == old proposal")
 	return blockID == oldProposal
 }
 
 func (testCaseThreeCond) newVote(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
 	if err != nil {
 		return false
 	}
-	if tMsg.Type != util.Prevote {
+	if tMsg.Type != util.Precommit {
 		return false
 	}
 	partition := getReplicaPartition(c.Context)
 	honestDelayed, _ := partition.GetPart("honestDelayed")
+	replica, _ := c.Replicas.Get(tMsg.From)
 
-	if !honestDelayed.Contains(tMsg.From) {
+	if !honestDelayed.Contains(tMsg.From) || !util.IsVoteFrom(tMsg, replica) {
 		return false
 	}
 	newProposal, _ := c.Vars.GetString("newProposal")
@@ -241,7 +244,16 @@ func (testCaseThreeCond) newVote(c *smlib.Context) bool {
 	if !ok {
 		return false
 	}
-	return blockID == newProposal
+	c.Vars.Set("blockVote", blockID)
+	c.Logger().With(log.LogParams{
+		"cur_vote":     blockID,
+		"new_proposal": newProposal,
+	}).Info("Checking vote == new proposal")
+	if blockID == newProposal {
+		c.EndTestCase()
+		return true
+	}
+	return false
 }
 
 func testCaseThreeSetup(c *testlib.Context) error {
@@ -253,7 +265,7 @@ func testCaseThreeSetup(c *testlib.Context) error {
 	c.Vars.Set("faults", faults)
 	c.Logger().With(log.LogParams{
 		"partition": partition.String(),
-	}).Debug("Partitiion created")
+	}).Info("Partitiion created")
 	return nil
 }
 
@@ -267,8 +279,7 @@ func Three() *testlib.TestCase {
 	relocked := sm.Builder().
 		On(commonConds.valueLockedCond, stateLockedValue).
 		On(commonConds.roundReached(1), stateRound1).
-		On(cond.diffProposal, stateForceRelock).
-		On(cond.nextRound, stateRelocked)
+		On(cond.diffProposal, stateForceRelock)
 
 	relocked.On(cond.oldVote, smlib.FailStateLabel)
 	relocked.On(cond.newVote, smlib.SuccessStateLabel)
@@ -278,7 +289,10 @@ func Three() *testlib.TestCase {
 	handler.AddEventHandler(filters.round0)
 	handler.AddEventHandler(filters.higherRound)
 
-	testcase := testlib.NewTestCase("ChangeLockedValue", 40*time.Second, handler)
+	testcase := testlib.NewTestCase("ChangeLockedValue", 70*time.Second, handler)
 	testcase.SetupFunc(testCaseThreeSetup)
+	testcase.AssertFn(func(c *testlib.Context) bool {
+		return sm.CurState().Is(smlib.SuccessStateLabel)
+	})
 	return testcase
 }
