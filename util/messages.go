@@ -419,3 +419,10 @@ func IsVoteFrom(msg *TMessageWrapper, replica *types.Replica) bool {
 
 	return bytes.Equal(replicaAddr.Bytes(), voteAddr)
 }
+
+func GetVoteValidator(msg *TMessageWrapper) ([]byte, bool) {
+	if msg.Type != Prevote && msg.Type != Precommit {
+		return []byte{}, false
+	}
+	return msg.Msg.GetVote().Vote.GetValidatorAddress(), true
+}

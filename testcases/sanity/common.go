@@ -33,7 +33,11 @@ func (commonCond) roundReached(toRound int) smlib.Condition {
 			return false
 		}
 		_, round := util.ExtractHR(tMsg)
-		rI, _ := c.Vars.Get("roundCount")
+		rI, ok := c.Vars.Get("roundCount")
+		if !ok {
+			c.Vars.Set("roundCount", make(map[string]int))
+			rI, _ = c.Vars.Get("roundCount")
+		}
 		roundCount := rI.(map[string]int)
 		cRound, ok := roundCount[string(tMsg.From)]
 		if !ok {
