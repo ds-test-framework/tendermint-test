@@ -1,148 +1,104 @@
 package sanity
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
+	"github.com/ds-test-framework/tendermint-test/common"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
 type threeFilters struct{}
 
-func (threeFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (threeFilters) countAndDeliver(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
-
-	_, round := util.ExtractHR(tMsg)
-	if round == -1 {
-		return []*types.Message{tMsg.SchedulerMessage}, true
+	faults, _ := c.Vars.GetInt("faults")
+	voteCountKey := fmt.Sprintf("voteCount_%s", tMsg.To)
+	if !c.Vars.Exists(voteCountKey) {
+		c.Vars.SetCounter(voteCountKey)
 	}
-	if round != 0 {
-		return []*types.Message{}, false
-	}
-	partition := getPartition(c.Context)
-	toNotLock, _ := partition.GetPart("toNotLock")
-
-	switch {
-	case tMsg.Type == util.Prevote && toNotLock.Contains(tMsg.To):
-		voteCount := getVoteCount(c.Context)
-		faults, _ := c.Vars.GetInt("faults")
-		_, ok := voteCount[string(tMsg.To)]
-		if !ok {
-			voteCount[string(tMsg.To)] = 0
-		}
-		curCount := voteCount[string(tMsg.To)]
-		if curCount >= 2*faults-1 {
-			return []*types.Message{}, true
-		}
-		voteCount[string(tMsg.To)] = curCount + 1
-		c.Vars.Set("voteCount", voteCount)
-		return []*types.Message{tMsg.SchedulerMessage}, true
-	case tMsg.Type == util.Proposal && round == 0:
-		blockID, ok := util.GetProposalBlockIDS(tMsg)
-		if ok {
-			c.Vars.Set("oldProposal", blockID)
-		}
-	}
-
-	return []*types.Message{tMsg.SchedulerMessage}, true
-}
-
-func (threeFilters) round1(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
-		return []*types.Message{}, false
-	}
-
-	_, round := util.ExtractHR(tMsg)
-	if round == -1 {
-		return []*types.Message{tMsg.SchedulerMessage}, true
-	}
-	if round != 1 {
-		return []*types.Message{}, false
-	}
-	if tMsg.Type == util.Proposal {
+	voteCount, _ := c.Vars.GetCounter(voteCountKey)
+	if voteCount.Value() >= 2*faults-1 {
 		return []*types.Message{}, true
 	}
-
-	return []*types.Message{tMsg.SchedulerMessage}, true
+	voteCount.Incr()
+	return []*types.Message{message}, true
 }
 
-func threeSetup(c *testlib.Context) error {
-	faults := int((c.Replicas.Cap() - 1) / 3)
-	partitioner := util.NewGenericParititioner(c.Replicas)
-	partition, err := partitioner.CreateParition([]int{faults + 1, 2*faults - 1, 1}, []string{"toLock", "toNotLock", "faulty"})
-	if err != nil {
-		return err
+func (threeFilters) recordProposal(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
+		return []*types.Message{}, false
 	}
+	blockID, ok := util.GetProposalBlockIDS(tMsg)
+	if ok {
+		c.Vars.Set("oldProposal", blockID)
+	}
+	return []*types.Message{message}, true
+}
+
+func threeSetup(c *testlib.Context) {
+	faults := int((c.Replicas.Cap() - 1) / 3)
+	partitioner := util.NewGenericPartitioner(c.Replicas)
+	partition, _ := partitioner.CreatePartition([]int{faults + 1, 2*faults - 1, 1}, []string{"toLock", "toNotLock", "faulty"})
 	c.Logger().With(log.LogParams{
 		"partition": partition.String(),
 	}).Info("Created partition")
 	c.Vars.Set("partition", partition)
-	c.Vars.Set("voteCount", make(map[string]int))
-	c.Vars.Set("faults", faults)
-	c.Vars.Set("roundCount", make(map[string]int))
-	return nil
-}
-
-type threeCond struct{}
-
-func (threeCond) commit(c *smlib.Context) bool {
-	cEventType := c.CurEvent.Type
-	switch cEventType := cEventType.(type) {
-	case *types.GenericEventType:
-		if cEventType.T != "Committing block" {
-			return false
-		}
-		blockID, ok := cEventType.Params["block_id"]
-		if !ok {
-			return false
-		}
-
-		oldProposalI, ok := c.Vars.Get("oldProposal")
-		if !ok {
-			return false
-		}
-		oldProposal := oldProposalI.(string)
-		c.Logger().With(log.LogParams{
-			"old_proposal": oldProposal,
-			"commit_block": blockID,
-		}).Info("Checking commit")
-		if blockID == oldProposal {
-			c.Vars.Set("CommitBlockID", blockID)
-			return true
-		}
-	}
-	return false
 }
 
 func ThreeTestCase() *testlib.TestCase {
-
-	commonFilters := commonFilters{}
-	commonCond := commonCond{}
 	filters := threeFilters{}
-	cond := threeCond{}
 
 	sm := smlib.NewStateMachine()
 	start := sm.Builder()
-	start.On(commonCond.commitCond, smlib.FailStateLabel)
-	round1 := start.On(commonCond.roundReached(1), "round1")
-	round1.On(commonCond.commitCond, smlib.FailStateLabel)
-	round2 := round1.On(commonCond.roundReached(2), "round2")
-	round2.On(cond.commit, smlib.SuccessStateLabel)
+	start.On(common.IsCommit, smlib.FailStateLabel)
+	round1 := start.On(common.RoundReached(1), "round1")
+	round1.On(common.IsCommit, smlib.FailStateLabel)
+	round2 := round1.On(common.RoundReached(2), "round2")
+	round2.On(common.IsCommit, smlib.SuccessStateLabel)
 
-	handler := smlib.NewAsyncStateMachineHandler(sm)
-	handler.AddEventHandler(commonFilters.faultyFilter)
-	handler.AddEventHandler(filters.round0)
-	handler.AddEventHandler(filters.round1)
+	handler := handlers.NewHandlerCascade()
+	handler.AddHandler(
+		handlers.If(
+			handlers.IsMessageSend().
+				And(common.IsVoteFromFaulty().AsFunc()),
+		).Then(common.ChangeVoteToNil),
+	)
+	handler.AddHandler(
+		handlers.If(handlers.IsMessageSend().
+			And(common.IsMessageFromRound(0).
+				And(common.IsToPart("toNotLock")).
+				And(common.IsMessageType(util.Prevote)).AsFunc()),
+		).Then(filters.countAndDeliver),
+	)
+	handler.AddHandler(
+		handlers.If(handlers.IsMessageSend().
+			And(common.IsMessageFromRound(0).
+				And(common.IsMessageType(util.Proposal)).AsFunc()),
+		).Then(filters.recordProposal),
+	)
+	handler.AddHandler(
+		handlers.If(
+			handlers.IsMessageSend().
+				And(common.IsMessageFromRound(1).
+					And(common.IsMessageType(util.Proposal)).AsFunc()),
+		).Then(handlers.DontDeliverMessage),
+	)
+	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("LockedValueCheck", 30*time.Second, handler)
-	testcase.SetupFunc(threeSetup)
+	testcase.SetupFunc(common.Setup(threeSetup))
 	testcase.AssertFn(func(c *testlib.Context) bool {
 		commitBlock, ok := c.Vars.GetString("CommitBlockID")
 		if !ok {

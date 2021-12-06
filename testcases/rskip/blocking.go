@@ -5,25 +5,26 @@ import (
 	"time"
 
 	"github.com/ds-test-framework/scheduler/testlib"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
-func commit_or_round1(c *smlib.Context) bool {
-	if c.CurEvent.IsMessageSend() {
-		id, _ := c.CurEvent.MessageID()
-		message, _ := c.MessagePool.Get(id)
-
-		t, _ := util.Unmarshal(message.Data)
-		_, r := util.ExtractHR(t)
+func commit_or_round1(e *types.Event, c *testlib.Context) bool {
+	if e.IsMessageSend() {
+		t, ok := util.GetMessageFromEvent(e, c)
+		if !ok {
+			return false
+		}
+		r := t.Round()
 
 		if r > 0 {
 			return true
 		}
 	}
 
-	eType, ok := c.CurEvent.Type.(*types.GenericEventType)
+	eType, ok := e.Type.(*types.GenericEventType)
 	if ok && eType.T == "Committing block" {
 		return true
 	}
@@ -65,18 +66,13 @@ func (ctr *counter) Incr(r types.ReplicaID) {
 	}
 }
 
-func filter_less_than_n_minus_f(c *smlib.Context) ([]*types.Message, bool) {
-	if !c.CurEvent.IsMessageSend() {
+func filter_less_than_n_minus_f(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	if !e.IsMessageSend() {
 		return []*types.Message{}, true
 	}
-	messageID, _ := c.CurEvent.MessageID()
-	message, ok := c.MessagePool.Get(messageID)
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
 	if !ok {
-		return []*types.Message{}, false
-	}
-
-	tMsg, err := util.Unmarshal(message.Data)
-	if err != nil {
 		return []*types.Message{}, false
 	}
 	if tMsg.Type != util.Prevote {
@@ -93,7 +89,7 @@ func filter_less_than_n_minus_f(c *smlib.Context) ([]*types.Message, bool) {
 	f := n / 3
 	count := ctr.Count(message.To)
 	if count < f+1 {
-		delayedM := getDelayedMStore(c.Context)
+		delayedM := getDelayedMStore(c)
 		delayedM.Add(message)
 		ctr.Incr(message.To)
 		return []*types.Message{}, true
@@ -107,9 +103,10 @@ func BlockingTestcase() *testlib.TestCase {
 	sm.Builder().
 		On(commit_or_round1, smlib.FailStateLabel)
 
-	handler := smlib.NewAsyncStateMachineHandler(sm)
-	handler.AddEventHandler(filter_less_than_n_minus_f)
-	handler.AddEventHandler(deliverDelayedFilter)
+	handler := handlers.NewHandlerCascade()
+	handler.AddHandler(filter_less_than_n_minus_f)
+	handler.AddHandler(deliverDelayedFilter)
+	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("BlockingTestCase", 30*time.Second, handler)
 	testcase.SetupFunc(setupFunc)

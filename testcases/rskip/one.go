@@ -5,26 +5,23 @@ import (
 
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
-func heightReached(height int) smlib.Condition {
-	return func(c *smlib.Context) bool {
-		if !c.CurEvent.IsMessageSend() {
+func heightReached(height int) handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		if !e.IsMessageSend() {
 			return false
 		}
-		messageID, _ := c.CurEvent.MessageID()
-		message, ok := c.MessagePool.Get(messageID)
+		message, _ := c.GetMessage(e)
+		tMsg, ok := util.GetParsedMessage(message)
 		if !ok {
 			return false
 		}
-		tMsg, err := util.Unmarshal(message.Data)
-		if err != nil {
-			return false
-		}
-		mHeight, _ := util.ExtractHR(tMsg)
+		mHeight := tMsg.Height()
 		return mHeight >= height
 	}
 }
@@ -75,22 +72,17 @@ func heightReached(height int) smlib.Condition {
 // 	return count >= threshold
 // }
 
-func roundReached(toRound int) smlib.Condition {
-	return func(c *smlib.Context) bool {
-		if !c.CurEvent.IsMessageSend() {
+func roundReached(toRound int) handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		if !e.IsMessageSend() {
 			return false
 		}
-		messageID, _ := c.CurEvent.MessageID()
-		message, ok := c.MessagePool.Get(messageID)
+		message, _ := c.GetMessage(e)
+		tMsg, ok := util.GetParsedMessage(message)
 		if !ok {
 			return false
 		}
-
-		tMsg, err := util.Unmarshal(message.Data)
-		if err != nil {
-			return false
-		}
-		_, round := util.ExtractHR(tMsg)
+		round := tMsg.Round()
 		rI, ok := c.Vars.Get("roundCount")
 		if !ok {
 			c.Vars.Set("roundCount", map[string]int{})
@@ -123,9 +115,8 @@ func roundReached(toRound int) smlib.Condition {
 
 func setupFunc(c *testlib.Context) error {
 	faults := int((c.Replicas.Cap() - 1) / 3)
-	partitioner := util.NewStaticPartitioner(c.Replicas, faults)
-	partitioner.NewPartition(0)
-	partition, _ := partitioner.GetPartition(0)
+	partitioner := util.NewGenericPartitioner(c.Replicas)
+	partition, _ := partitioner.CreatePartition([]int{1, faults, 2 * faults}, []string{"honestDelayed", "faulty", "rest"})
 	c.Vars.Set("partition", partition)
 	delayedMessages := types.NewMessageStore()
 	c.Vars.Set("delayedMessages", delayedMessages)
@@ -142,35 +133,30 @@ func getDelayedMStore(c *testlib.Context) *types.MessageStore {
 	return v.(*types.MessageStore)
 }
 
-func noDelayedMessagesCond(c *smlib.Context) bool {
-	delayedMessages := getDelayedMStore(c.Context)
+func noDelayedMessagesCond(_ *types.Event, c *testlib.Context) bool {
+	delayedMessages := getDelayedMStore(c)
 	return delayedMessages.Size() == 0
 }
 
-func changeVoteFilter(height, round int) smlib.EventHandler {
-	return func(c *smlib.Context) ([]*types.Message, bool) {
-		if !c.CurEvent.IsMessageSend() {
+func changeVoteFilter(height, round int) handlers.HandlerFunc {
+	return func(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+		if !e.IsMessageSend() {
 			return []*types.Message{}, true
 		}
-		messageID, _ := c.CurEvent.MessageID()
-		message, ok := c.MessagePool.Get(messageID)
+		message, _ := c.GetMessage(e)
+		tMsg, ok := util.GetParsedMessage(message)
 		if !ok {
-			return []*types.Message{}, false
-		}
-
-		tMsg, err := util.Unmarshal(message.Data)
-		if err != nil {
 			return []*types.Message{}, false
 		}
 		if tMsg.Type != util.Prevote {
 			return []*types.Message{message}, false
 		}
-		h, r := util.ExtractHR(tMsg)
+		h, r := tMsg.HeightRound()
 		if h != height || r >= round || r < 0 {
 			return []*types.Message{message}, true
 		}
 
-		partition := getPartition(c.Context)
+		partition := getPartition(c)
 		rest, _ := partition.GetPart("rest")
 		faulty, _ := partition.GetPart("faulty")
 		if rest.Contains(message.From) {
@@ -184,32 +170,32 @@ func changeVoteFilter(height, round int) smlib.EventHandler {
 			if err != nil {
 				return []*types.Message{}, false
 			}
-			data, err := util.Marshal(newvote)
+			data, err := newvote.Marshal()
 			if err != nil {
 				return []*types.Message{}, false
 			}
 			return []*types.Message{c.NewMessage(message, data)}, true
 		} else {
-			delayedM := getDelayedMStore(c.Context)
+			delayedM := getDelayedMStore(c)
 			delayedM.Add(message)
 			return []*types.Message{}, true
 		}
 	}
 }
 
-func deliverDelayedFilter(c *smlib.Context) ([]*types.Message, bool) {
-	if c.StateMachine.CurState().Label != "deliverDelayed" {
-		return []*types.Message{}, false
-	}
-	if !c.CurEvent.IsMessageSend() {
+func deliverDelayedFilter(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	// if c.StateMachine.CurState().Label != "deliverDelayed" {
+	// 	return []*types.Message{}, false
+	// }
+	if !e.IsMessageSend() {
 		return []*types.Message{}, true
 	}
-	messageID, _ := c.CurEvent.MessageID()
+	messageID, _ := e.MessageID()
 	message, ok := c.MessagePool.Get(messageID)
 	if !ok {
 		return []*types.Message{}, false
 	}
-	delayedM := getDelayedMStore(c.Context)
+	delayedM := getDelayedMStore(c)
 	if delayedM.Size() == 0 {
 		return []*types.Message{message}, true
 	}
@@ -230,9 +216,10 @@ func OneTestcase(height, round int) *testlib.TestCase {
 		On(roundReached(round), "deliverDelayed").
 		On(noDelayedMessagesCond, smlib.SuccessStateLabel)
 
-	handler := smlib.NewAsyncStateMachineHandler(sm)
-	handler.AddEventHandler(changeVoteFilter(height, round))
-	handler.AddEventHandler(deliverDelayedFilter)
+	handler := handlers.NewHandlerCascade()
+	handler.AddHandler(changeVoteFilter(height, round))
+	handler.AddHandler(deliverDelayedFilter)
+	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("RoundSkipPrevote", 30*time.Second, handler)
 	testcase.SetupFunc(setupFunc)

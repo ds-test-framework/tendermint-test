@@ -12,25 +12,31 @@ import (
 )
 
 type ReplicaSet struct {
-	replicas map[types.ReplicaID]bool
+	replicas map[types.ReplicaID]*types.Replica
+	valAddrs map[string]bool
 	size     int
 	mtx      *sync.Mutex
 }
 
 func NewReplicaSet() *ReplicaSet {
 	return &ReplicaSet{
-		replicas: make(map[types.ReplicaID]bool),
+		replicas: make(map[types.ReplicaID]*types.Replica),
+		valAddrs: make(map[string]bool),
 		size:     0,
 		mtx:      new(sync.Mutex),
 	}
 }
 
-func (r *ReplicaSet) Add(id types.ReplicaID) {
+func (r *ReplicaSet) Add(replica *types.Replica) {
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
-	_, ok := r.replicas[id]
+	_, ok := r.replicas[replica.ID]
 	if !ok {
-		r.replicas[id] = true
+		if key, err := GetPrivKey(replica); err == nil {
+			addr := key.PubKey().Address()
+			r.valAddrs[string(addr.Bytes())] = true
+		}
+		r.replicas[replica.ID] = replica
 		r.size = r.size + 1
 	}
 }
@@ -46,6 +52,14 @@ func (r *ReplicaSet) Exists(id types.ReplicaID) bool {
 	defer r.mtx.Unlock()
 
 	_, ok := r.replicas[id]
+	return ok
+}
+
+func (r *ReplicaSet) ExistsVal(addr []byte) bool {
+	r.mtx.Lock()
+	defer r.mtx.Unlock()
+
+	_, ok := r.valAddrs[string(addr)]
 	return ok
 }
 
@@ -97,4 +111,12 @@ func GetChainID(r *types.Replica) (string, error) {
 		return "", errors.New("chain id does not exist")
 	}
 	return chain_id.(string), nil
+}
+
+func GetReplicaAddress(r *types.Replica) ([]byte, error) {
+	key, err := GetPrivKey(r)
+	if err != nil {
+		return nil, err
+	}
+	return key.PubKey().Address().Bytes(), nil
 }

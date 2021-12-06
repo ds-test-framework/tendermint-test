@@ -4,17 +4,18 @@ import (
 	"time"
 
 	"github.com/ds-test-framework/scheduler/testlib"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
-func getRoundCond(toRound int) smlib.Condition {
-	return func(c *smlib.Context) bool {
-		if !c.CurEvent.IsMessageSend() {
+func getRoundCond(toRound int) handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		if !e.IsMessageSend() {
 			return false
 		}
-		messageID, _ := c.CurEvent.MessageID()
+		messageID, _ := e.MessageID()
 		message, ok := c.MessagePool.Get(messageID)
 		if !ok {
 			return false
@@ -24,7 +25,7 @@ func getRoundCond(toRound int) smlib.Condition {
 		if err != nil {
 			return false
 		}
-		_, round := util.ExtractHR(tMsg)
+		round := tMsg.Round()
 		rI, ok := c.Vars.Get("roundCount")
 		if !ok {
 			c.Vars.Set("roundCount", map[string]int{})
@@ -50,25 +51,26 @@ func getRoundCond(toRound int) smlib.Condition {
 	}
 }
 
-func changeProposal(c *smlib.Context) ([]*types.Message, bool) {
+func changeProposal(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
 	return []*types.Message{}, false
 }
 
-func changeVote(c *smlib.Context) ([]*types.Message, bool) {
+func changeVote(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
 	return []*types.Message{}, false
 }
 
-func changeBlockParts(c *smlib.Context) ([]*types.Message, bool) {
+func changeBlockParts(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
 	return []*types.Message{}, false
 }
 
 func One() *testlib.TestCase {
 	stateMachine := smlib.NewStateMachine()
 
-	h := smlib.NewAsyncStateMachineHandler(stateMachine)
-	h.AddEventHandler(changeProposal)
-	h.AddEventHandler(changeVote)
-	h.AddEventHandler(changeBlockParts)
+	h := handlers.NewHandlerCascade()
+	h.AddHandler(changeProposal)
+	h.AddHandler(changeVote)
+	h.AddHandler(changeBlockParts)
+	h.AddHandler(smlib.NewAsyncStateMachineHandler(stateMachine))
 
 	testcase := testlib.NewTestCase(
 		"CompetingProposals",

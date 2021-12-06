@@ -64,9 +64,9 @@ func TestChangeVote(t *testing.T) {
 
 	vote.Signature = sig
 
-	voteMsg := &TMessageWrapper{
+	voteMsg := &TMessage{
 		Type: Prevote,
-		Msg: &tmsg.Message{
+		Data: &tmsg.Message{
 			Sum: &tmsg.Message_Vote{
 				Vote: &tmsg.Vote{
 					Vote: vote,
@@ -79,7 +79,7 @@ func TestChangeVote(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	newvote := newVoteMsg.Msg.GetVote().Vote
+	newvote := newVoteMsg.Data.GetVote().Vote
 	newBlockID, err := ttypes.BlockIDFromProto(&newvote.BlockID)
 	if err != nil {
 		t.Error(err)

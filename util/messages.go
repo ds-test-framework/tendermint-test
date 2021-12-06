@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/gogo/protobuf/proto"
 	tmsg "github.com/tendermint/tendermint/proto/tendermint/consensus"
@@ -35,36 +36,98 @@ const (
 	None          MessageType = "None"
 )
 
-type TMessageWrapper struct {
-	ChannelID        uint16          `json:"chan_id"`
-	MsgB             []byte          `json:"msg"`
-	From             types.ReplicaID `json:"from"`
-	To               types.ReplicaID `json:"to"`
-	Type             MessageType     `json:"-"`
-	Msg              *tmsg.Message   `json:"-"`
-	SchedulerMessage *types.Message  `json:"-"`
+type TMessage struct {
+	ChannelID uint16          `json:"chan_id"`
+	MsgB      []byte          `json:"msg"`
+	From      types.ReplicaID `json:"from"`
+	To        types.ReplicaID `json:"to"`
+	Type      MessageType     `json:"-"`
+	Data      *tmsg.Message   `json:"-"`
 }
 
-func GetMessageFromSendEvent(event *types.Event, messagePool *types.MessageStore) (*TMessageWrapper, error) {
-	if !event.IsMessageSend() {
-		return nil, errors.New("event is not message send ")
-	}
-	messageID, _ := event.MessageID()
-	message, ok := messagePool.Get(messageID)
-	if !ok {
-		return nil, errors.New("message not found in the pool")
-	}
+var _ types.ParsedMessage = &TMessage{}
 
-	tMsg, err := Unmarshal(message.Data)
+func (t *TMessage) Clone() types.ParsedMessage {
+	return &TMessage{
+		ChannelID: t.ChannelID,
+		MsgB:      t.MsgB,
+		From:      t.From,
+		To:        t.To,
+		Type:      t.Type,
+		Data:      t.Data,
+	}
+}
+
+func (t *TMessage) String() string {
+	d, _ := json.Marshal(t)
+	return string(d)
+}
+
+func (t *TMessage) Height() int {
+	height, _ := t.HeightRound()
+	return height
+}
+
+func (t *TMessage) Round() int {
+	_, round := t.HeightRound()
+	return round
+}
+
+func (t *TMessage) HeightRound() (int, int) {
+	switch t.Type {
+	case NewRoundStep:
+		hrs := t.Data.GetNewRoundStep()
+		return int(hrs.Height), int(hrs.Round)
+	case Proposal:
+		prop := t.Data.GetProposal()
+		return int(prop.Proposal.Height), int(prop.Proposal.Round)
+	case Prevote:
+		vote := t.Data.GetVote()
+		return int(vote.Vote.Height), int(vote.Vote.Round)
+	case Precommit:
+		vote := t.Data.GetVote()
+		return int(vote.Vote.Height), int(vote.Vote.Round)
+	case Vote:
+		vote := t.Data.GetVote()
+		return int(vote.Vote.Height), int(vote.Vote.Round)
+	case NewValidBlock:
+		block := t.Data.GetNewValidBlock()
+		return int(block.Height), int(block.Round)
+	case ProposalPol:
+		pPol := t.Data.GetProposalPol()
+		return int(pPol.Height), -1
+	case VoteSetMaj23:
+		vote := t.Data.GetVoteSetMaj23()
+		return int(vote.Height), int(vote.Round)
+	case VoteSetBits:
+		vote := t.Data.GetVoteSetBits()
+		return int(vote.Height), int(vote.Round)
+	case BlockPart:
+		blockPart := t.Data.GetBlockPart()
+		return int(blockPart.Height), int(blockPart.Round)
+	}
+	return -1, -1
+}
+
+func (t *TMessage) Marshal() ([]byte, error) {
+	msgB, err := proto.Marshal(t.Data)
 	if err != nil {
 		return nil, err
 	}
-	tMsg.SchedulerMessage = message
-	return tMsg, nil
+	t.MsgB = msgB
+
+	result, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
-func Unmarshal(m []byte) (*TMessageWrapper, error) {
-	var cMsg TMessageWrapper
+type TMessageParser struct {
+}
+
+func (p *TMessageParser) Parse(m []byte) (types.ParsedMessage, error) {
+	var cMsg TMessage
 	err := json.Unmarshal(m, &cMsg)
 	if err != nil {
 		return &cMsg, err
@@ -81,12 +144,12 @@ func Unmarshal(m []byte) (*TMessageWrapper, error) {
 	if err := proto.Unmarshal(cMsg.MsgB, msg); err != nil {
 		// log.Debug("Error unmarshalling")
 		cMsg.Type = None
-		cMsg.Msg = nil
+		cMsg.Data = nil
 		return &cMsg, nil
 	}
 
 	tMsg := msg.(*tmsg.Message)
-	cMsg.Msg = tMsg
+	cMsg.Data = tMsg
 
 	switch tMsg.Sum.(type) {
 	case *tmsg.Message_NewRoundStep:
@@ -127,64 +190,30 @@ func Unmarshal(m []byte) (*TMessageWrapper, error) {
 	return &cMsg, err
 }
 
-func Marshal(msg *TMessageWrapper) ([]byte, error) {
-	msgB, err := proto.Marshal(msg.Msg)
-	if err != nil {
-		return nil, err
+func GetMessageFromEvent(e *types.Event, ctx *testlib.Context) (*TMessage, bool) {
+	m, ok := ctx.GetMessage(e)
+	if !ok {
+		return nil, ok
 	}
-	msg.MsgB = msgB
-
-	result, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
+	return GetParsedMessage(m)
 }
 
-func ExtractHR(msg *TMessageWrapper) (int, int) {
-	switch msg.Type {
-	case NewRoundStep:
-		hrs := msg.Msg.GetNewRoundStep()
-		return int(hrs.Height), int(hrs.Round)
-	case Proposal:
-		prop := msg.Msg.GetProposal()
-		return int(prop.Proposal.Height), int(prop.Proposal.Round)
-	case Prevote:
-		vote := msg.Msg.GetVote()
-		return int(vote.Vote.Height), int(vote.Vote.Round)
-	case Precommit:
-		vote := msg.Msg.GetVote()
-		return int(vote.Vote.Height), int(vote.Vote.Round)
-	case Vote:
-		vote := msg.Msg.GetVote()
-		return int(vote.Vote.Height), int(vote.Vote.Round)
-	case NewValidBlock:
-		block := msg.Msg.GetNewValidBlock()
-		return int(block.Height), int(block.Round)
-	case ProposalPol:
-		pPol := msg.Msg.GetProposalPol()
-		return int(pPol.Height), -1
-	case VoteSetMaj23:
-		vote := msg.Msg.GetVoteSetMaj23()
-		return int(vote.Height), int(vote.Round)
-	case VoteSetBits:
-		vote := msg.Msg.GetVoteSetBits()
-		return int(vote.Height), int(vote.Round)
-	case BlockPart:
-		blockPart := msg.Msg.GetBlockPart()
-		return int(blockPart.Height), int(blockPart.Round)
+func GetParsedMessage(m *types.Message) (*TMessage, bool) {
+	if m == nil || m.ParsedMessage == nil {
+		return nil, false
 	}
-	return -1, -1
+	t, ok := m.ParsedMessage.(*TMessage)
+	return t, ok
 }
 
-func ChangeVoteToNil(replica *types.Replica, voteMsg *TMessageWrapper) (*TMessageWrapper, error) {
+func ChangeVoteToNil(replica *types.Replica, voteMsg *TMessage) (*TMessage, error) {
 	return ChangeVote(replica, voteMsg, &ttypes.BlockID{
 		Hash:          nil,
 		PartSetHeader: ttypes.PartSetHeader{},
 	})
 }
 
-func ChangeVote(replica *types.Replica, tMsg *TMessageWrapper, blockID *ttypes.BlockID) (*TMessageWrapper, error) {
+func ChangeVote(replica *types.Replica, tMsg *TMessage, blockID *ttypes.BlockID) (*TMessage, error) {
 	privKey, err := GetPrivKey(replica)
 	if err != nil {
 		return nil, err
@@ -199,7 +228,7 @@ func ChangeVote(replica *types.Replica, tMsg *TMessageWrapper, blockID *ttypes.B
 		return tMsg, ErrInvalidVote
 	}
 
-	vote := tMsg.Msg.GetVote().Vote
+	vote := tMsg.Data.GetVote().Vote
 	newVote := &ttypes.Vote{
 		Type:             vote.Type,
 		Height:           vote.Height,
@@ -218,7 +247,7 @@ func ChangeVote(replica *types.Replica, tMsg *TMessageWrapper, blockID *ttypes.B
 
 	newVote.Signature = sig
 
-	tMsg.Msg = &tmsg.Message{
+	tMsg.Data = &tmsg.Message{
 		Sum: &tmsg.Message_Vote{
 			Vote: &tmsg.Vote{
 				Vote: newVote.ToProto(),
@@ -229,7 +258,7 @@ func ChangeVote(replica *types.Replica, tMsg *TMessageWrapper, blockID *ttypes.B
 	return tMsg, nil
 }
 
-func ChangeVoteTime(replica *types.Replica, tMsg *TMessageWrapper, time time.Time) (*TMessageWrapper, error) {
+func ChangeVoteTime(replica *types.Replica, tMsg *TMessage, time time.Time) (*TMessage, error) {
 
 	privKey, err := GetPrivKey(replica)
 	if err != nil {
@@ -245,7 +274,7 @@ func ChangeVoteTime(replica *types.Replica, tMsg *TMessageWrapper, time time.Tim
 		return tMsg, nil
 	}
 
-	vote := tMsg.Msg.GetVote().Vote
+	vote := tMsg.Data.GetVote().Vote
 
 	blockID, err := ttypes.BlockIDFromProto(&vote.BlockID)
 	if err != nil {
@@ -269,7 +298,7 @@ func ChangeVoteTime(replica *types.Replica, tMsg *TMessageWrapper, time time.Tim
 
 	newVote.Signature = sig
 
-	tMsg.Msg = &tmsg.Message{
+	tMsg.Data = &tmsg.Message{
 		Sum: &tmsg.Message_Vote{
 			Vote: &tmsg.Vote{
 				Vote: newVote.ToProto(),
@@ -280,7 +309,7 @@ func ChangeVoteTime(replica *types.Replica, tMsg *TMessageWrapper, time time.Tim
 	return tMsg, nil
 }
 
-func ChangeProposalBlockID(replica *types.Replica, pMsg *TMessageWrapper) (*TMessageWrapper, error) {
+func ChangeProposalBlockID(replica *types.Replica, pMsg *TMessage) (*TMessage, error) {
 	privKey, err := GetPrivKey(replica)
 	if err != nil {
 		return nil, err
@@ -289,7 +318,7 @@ func ChangeProposalBlockID(replica *types.Replica, pMsg *TMessageWrapper) (*TMes
 	if err != nil {
 		return nil, err
 	}
-	propP := pMsg.Msg.GetProposal().Proposal
+	propP := pMsg.Data.GetProposal().Proposal
 	prop, err := ttypes.ProposalFromProto(&propP)
 	if err != nil {
 		return nil, errors.New("failed converting proposal message")
@@ -311,7 +340,7 @@ func ChangeProposalBlockID(replica *types.Replica, pMsg *TMessageWrapper) (*TMes
 		return nil, fmt.Errorf("could not sign proposal: %s", err)
 	}
 	newProp.Signature = sig
-	pMsg.Msg = &tmsg.Message{
+	pMsg.Data = &tmsg.Message{
 		Sum: &tmsg.Message_Proposal{
 			Proposal: &tmsg.Proposal{
 				Proposal: *newProp.ToProto(),
@@ -322,7 +351,7 @@ func ChangeProposalBlockID(replica *types.Replica, pMsg *TMessageWrapper) (*TMes
 	return pMsg, nil
 }
 
-func ChangeProposalLockedValue(replica *types.Replica, pMsg *TMessageWrapper) (*TMessageWrapper, error) {
+func ChangeProposalLockedValue(replica *types.Replica, pMsg *TMessage) (*TMessage, error) {
 	privKey, err := GetPrivKey(replica)
 	if err != nil {
 		return nil, err
@@ -331,7 +360,7 @@ func ChangeProposalLockedValue(replica *types.Replica, pMsg *TMessageWrapper) (*
 	if err != nil {
 		return nil, err
 	}
-	propP := pMsg.Msg.GetProposal().Proposal
+	propP := pMsg.Data.GetProposal().Proposal
 	prop, err := ttypes.ProposalFromProto(&propP)
 	if err != nil {
 		return nil, errors.New("failed converting proposal message")
@@ -351,7 +380,7 @@ func ChangeProposalLockedValue(replica *types.Replica, pMsg *TMessageWrapper) (*
 		return nil, fmt.Errorf("could not sign proposal: %s", err)
 	}
 	newProp.Signature = sig
-	pMsg.Msg = &tmsg.Message{
+	pMsg.Data = &tmsg.Message{
 		Sum: &tmsg.Message_Proposal{
 			Proposal: &tmsg.Proposal{
 				Proposal: *newProp.ToProto(),
@@ -362,7 +391,7 @@ func ChangeProposalLockedValue(replica *types.Replica, pMsg *TMessageWrapper) (*
 	return pMsg, nil
 }
 
-func GetProposalBlockIDS(msg *TMessageWrapper) (string, bool) {
+func GetProposalBlockIDS(msg *TMessage) (string, bool) {
 	blockID, ok := GetProposalBlockID(msg)
 	if !ok {
 		return "", false
@@ -370,11 +399,11 @@ func GetProposalBlockIDS(msg *TMessageWrapper) (string, bool) {
 	return blockID.Hash.String(), true
 }
 
-func GetProposalBlockID(msg *TMessageWrapper) (*ttypes.BlockID, bool) {
+func GetProposalBlockID(msg *TMessage) (*ttypes.BlockID, bool) {
 	if msg.Type != Proposal {
 		return nil, false
 	}
-	prop := msg.Msg.GetProposal()
+	prop := msg.Data.GetProposal()
 	blockID, err := ttypes.BlockIDFromProto(&prop.Proposal.BlockID)
 	if err != nil {
 		return nil, false
@@ -382,14 +411,14 @@ func GetProposalBlockID(msg *TMessageWrapper) (*ttypes.BlockID, bool) {
 	return blockID, true
 }
 
-func GetVoteTime(msg *TMessageWrapper) (time.Time, bool) {
+func GetVoteTime(msg *TMessage) (time.Time, bool) {
 	if msg.Type == Precommit || msg.Type == Prevote {
-		return msg.Msg.GetVote().Vote.Timestamp, true
+		return msg.Data.GetVote().Vote.Timestamp, true
 	}
 	return time.Time{}, false
 }
 
-func GetVoteBlockIDS(msg *TMessageWrapper) (string, bool) {
+func GetVoteBlockIDS(msg *TMessage) (string, bool) {
 	blockID, ok := GetVoteBlockID(msg)
 	if !ok {
 		return "", false
@@ -397,11 +426,11 @@ func GetVoteBlockIDS(msg *TMessageWrapper) (string, bool) {
 	return blockID.Hash.String(), true
 }
 
-func GetVoteBlockID(msg *TMessageWrapper) (*ttypes.BlockID, bool) {
+func GetVoteBlockID(msg *TMessage) (*ttypes.BlockID, bool) {
 	if msg.Type != Prevote && msg.Type != Precommit {
 		return nil, false
 	}
-	vote := msg.Msg.GetVote().Vote
+	vote := msg.Data.GetVote().Vote
 	blockID, err := ttypes.BlockIDFromProto(&vote.BlockID)
 	if err != nil {
 		return nil, false
@@ -409,20 +438,20 @@ func GetVoteBlockID(msg *TMessageWrapper) (*ttypes.BlockID, bool) {
 	return blockID, true
 }
 
-func IsVoteFrom(msg *TMessageWrapper, replica *types.Replica) bool {
+func IsVoteFrom(msg *TMessage, replica *types.Replica) bool {
 	privKey, err := GetPrivKey(replica)
 	if err != nil {
 		return false
 	}
 	replicaAddr := privKey.PubKey().Address()
-	voteAddr := msg.Msg.GetVote().Vote.ValidatorAddress
+	voteAddr := msg.Data.GetVote().Vote.ValidatorAddress
 
 	return bytes.Equal(replicaAddr.Bytes(), voteAddr)
 }
 
-func GetVoteValidator(msg *TMessageWrapper) ([]byte, bool) {
+func GetVoteValidator(msg *TMessage) ([]byte, bool) {
 	if msg.Type != Prevote && msg.Type != Precommit {
 		return []byte{}, false
 	}
-	return msg.Msg.GetVote().Vote.GetValidatorAddress(), true
+	return msg.Data.GetVote().Vote.GetValidatorAddress(), true
 }

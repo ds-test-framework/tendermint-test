@@ -9,6 +9,7 @@ import (
 	"github.com/ds-test-framework/scheduler/config"
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/tendermint-test/testcases/rskip"
+	"github.com/ds-test-framework/tendermint-test/util"
 )
 
 func main() {
@@ -24,6 +25,7 @@ func main() {
 				Path: "/tmp/tendermint/log/checker.log",
 			},
 		},
+		&util.TMessageParser{},
 		[]*testlib.TestCase{
 			// testcases.DummyTestCase(),
 			// rskip.OneTestcase(1, 2),

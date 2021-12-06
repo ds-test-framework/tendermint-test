@@ -5,6 +5,7 @@ import (
 
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
@@ -13,14 +14,15 @@ import (
 
 type higherPropFilters struct{}
 
-func (higherPropFilters) getFaultyReplica(c *smlib.Context) *types.Replica {
+func (higherPropFilters) getFaultyReplica(c *testlib.Context) *types.Replica {
 	fI, _ := c.Vars.Get("faultyReplica")
 	return fI.(*types.Replica)
 }
 
-func (h higherPropFilters) faultyFilter(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (h higherPropFilters) faultyFilter(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
 	if tMsg.Type != util.Prevote && tMsg.Type != util.Precommit {
@@ -35,7 +37,7 @@ func (h higherPropFilters) faultyFilter(c *smlib.Context) ([]*types.Message, boo
 		return []*types.Message{}, false
 	}
 
-	partition := getPartition(c.Context)
+	partition := getPartition(c)
 	rest, _ := partition.GetPart("rest")
 	replica, _ := c.Replicas.Get(tMsg.From)
 
@@ -45,30 +47,31 @@ func (h higherPropFilters) faultyFilter(c *smlib.Context) ([]*types.Message, boo
 		if err != nil {
 			return []*types.Message{}, false
 		}
-		newMsgB, err := util.Marshal(newVote)
+		newMsgB, err := newVote.Marshal()
 		if err != nil {
 			return []*types.Message{}, false
 		}
-		return []*types.Message{c.NewMessage(tMsg.SchedulerMessage, newMsgB)}, true
+		return []*types.Message{c.NewMessage(message, newMsgB)}, true
 	}
 
 	newVote, err := util.ChangeVoteToNil(replica, tMsg)
 	if err != nil {
 		return []*types.Message{}, false
 	}
-	newMsgB, err := util.Marshal(newVote)
+	newMsgB, err := newVote.Marshal()
 	if err != nil {
 		return []*types.Message{}, false
 	}
-	return []*types.Message{c.NewMessage(tMsg.SchedulerMessage, newMsgB)}, true
+	return []*types.Message{c.NewMessage(message, newMsgB)}, true
 }
 
-func (higherPropFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (higherPropFilters) round0(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	if round != 0 {
 		return []*types.Message{}, false
 	}
@@ -79,10 +82,10 @@ func (higherPropFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
 		}
 	}
 	if tMsg.Type != util.Prevote {
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{message}, true
 	}
 
-	partition := getPartition(c.Context)
+	partition := getPartition(c)
 	h, _ := partition.GetPart("honestDelayed")
 	var hID types.ReplicaID
 	for _, r := range h.ReplicaSet.Iter() {
@@ -92,22 +95,23 @@ func (higherPropFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
 	if util.IsVoteFrom(tMsg, hReplica) {
 		return []*types.Message{}, true
 	}
-	return []*types.Message{tMsg.SchedulerMessage}, true
+	return []*types.Message{message}, true
 }
 
-func (higherPropFilters) propFilter(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (higherPropFilters) propFilter(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
 	if tMsg.Type != util.Proposal {
 		return []*types.Message{}, false
 	}
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	if round == 0 {
 		blockIDS, _ := util.GetProposalBlockIDS(tMsg)
 		c.Vars.Set("oldProposal", blockIDS)
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{message}, true
 	}
 	blockIDS, _ := util.GetProposalBlockIDS(tMsg)
 	oldProp, _ := c.Vars.GetString("oldProposal")
@@ -115,29 +119,29 @@ func (higherPropFilters) propFilter(c *smlib.Context) ([]*types.Message, bool) {
 		blockID, _ := util.GetProposalBlockID(tMsg)
 		c.Vars.Set("newProposal", blockIDS)
 		c.Vars.Set("newProposalBlockID", blockID)
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{message}, true
 	}
 	return []*types.Message{}, true
 }
 
 type higherPropCond struct{}
 
-func (higherPropCond) valueLockedCond(c *smlib.Context) bool {
-	if !c.CurEvent.IsMessageReceive() {
+func (higherPropCond) valueLockedCond(e *types.Event, c *testlib.Context) bool {
+	if !e.IsMessageReceive() {
 		return false
 	}
-	messageID, _ := c.CurEvent.MessageID()
+	messageID, _ := e.MessageID()
 	message, ok := c.MessagePool.Get(messageID)
 	if !ok {
 		return false
 	}
 
-	tMsg, err := util.Unmarshal(message.Data)
-	if err != nil {
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return false
 	}
 
-	partition := getPartition(c.Context)
+	partition := getPartition(c)
 	honestDelayed, _ := partition.GetPart("honestDelayed")
 
 	if tMsg.Type == util.Prevote && honestDelayed.Contains(tMsg.To) {
@@ -167,9 +171,9 @@ func (higherPropCond) valueLockedCond(c *smlib.Context) bool {
 	return false
 }
 
-func (higherPropCond) diffPropSeen(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (higherPropCond) diffPropSeen(e *types.Event, c *testlib.Context) bool {
+	tMsg, ok := util.GetMessageFromEvent(e, c)
+	if !ok {
 		return false
 	}
 	if tMsg.Type != util.Proposal {
@@ -192,9 +196,9 @@ func (higherPropCond) diffPropSeen(c *smlib.Context) bool {
 	return false
 }
 
-func (higherPropCond) newPropSeen(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (higherPropCond) newPropSeen(e *types.Event, c *testlib.Context) bool {
+	tMsg, ok := util.GetMessageFromEvent(e, c)
+	if !ok {
 		return false
 	}
 	if tMsg.Type != util.Proposal {
@@ -202,7 +206,7 @@ func (higherPropCond) newPropSeen(c *smlib.Context) bool {
 	}
 	blockIDS, _ := util.GetProposalBlockIDS(tMsg)
 	newProp, _ := c.Vars.GetString("newProposal")
-	proposal := tMsg.Msg.GetProposal().Proposal
+	proposal := tMsg.Data.GetProposal().Proposal
 	if blockIDS == newProp && proposal.PolRound != -1 {
 		c.Vars.Set("newPropReproposeRound", int(proposal.Round))
 		c.Logger().With(log.LogParams{
@@ -216,19 +220,19 @@ func (higherPropCond) newPropSeen(c *smlib.Context) bool {
 	return false
 }
 
-func (higherPropCond) hNewVote(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (higherPropCond) hNewVote(e *types.Event, c *testlib.Context) bool {
+	tMsg, ok := util.GetMessageFromEvent(e, c)
+	if !ok {
 		return false
 	}
-	partition := getPartition(c.Context)
+	partition := getPartition(c)
 	h, _ := partition.GetPart("honestDelayed")
 	var hID types.ReplicaID
 	for _, r := range h.ReplicaSet.Iter() {
 		hID = r
 	}
 	hReplica, _ := c.Replicas.Get(hID)
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	correctRound, _ := c.Vars.GetInt("newPropReproposeRound")
 	if tMsg.Type != util.Prevote || !util.IsVoteFrom(tMsg, hReplica) {
 		return false
@@ -238,19 +242,19 @@ func (higherPropCond) hNewVote(c *smlib.Context) bool {
 	return blockIDS == newProp && round == correctRound
 }
 
-func (higherPropCond) hOldVote(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (higherPropCond) hOldVote(e *types.Event, c *testlib.Context) bool {
+	tMsg, ok := util.GetMessageFromEvent(e, c)
+	if !ok {
 		return false
 	}
-	partition := getPartition(c.Context)
+	partition := getPartition(c)
 	h, _ := partition.GetPart("honestDelayed")
 	var hID types.ReplicaID
 	for _, r := range h.ReplicaSet.Iter() {
 		hID = r
 	}
 	hReplica, _ := c.Replicas.Get(hID)
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	correctRound, _ := c.Vars.GetInt("newPropReproposeRound")
 	if tMsg.Type != util.Prevote || !util.IsVoteFrom(tMsg, hReplica) {
 		return false
@@ -260,12 +264,12 @@ func (higherPropCond) hOldVote(c *smlib.Context) bool {
 	return blockIDS == oldProp && round == correctRound
 }
 
-func (higherPropCond) rOldVote(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (higherPropCond) rOldVote(e *types.Event, c *testlib.Context) bool {
+	tMsg, ok := util.GetMessageFromEvent(e, c)
+	if !ok {
 		return false
 	}
-	partition := getPartition(c.Context)
+	partition := getPartition(c)
 	rest, _ := partition.GetPart("rest")
 	if tMsg.Type == util.Precommit && rest.Contains(tMsg.From) {
 		oldProp, _ := c.Vars.GetString("oldProposal")
@@ -278,8 +282,8 @@ func (higherPropCond) rOldVote(c *smlib.Context) bool {
 func higherPropSetup(c *testlib.Context) error {
 	faults := int((c.Replicas.Cap() - 1) / 3)
 	partition, _ := util.
-		NewGenericParititioner(c.Replicas).
-		CreateParition([]int{faults, 1, 2 * faults}, []string{"faulty", "honestDelayed", "rest"})
+		NewGenericPartitioner(c.Replicas).
+		CreatePartition([]int{faults, 1, 2 * faults}, []string{"faulty", "honestDelayed", "rest"})
 
 	faulty, _ := partition.GetPart("faulty")
 	var faultyReplicaID types.ReplicaID
@@ -311,10 +315,11 @@ func HigherProp() *testlib.TestCase {
 	newPropSeen.On(cond.hNewVote, smlib.SuccessStateLabel)
 	newPropSeen.On(cond.hOldVote, smlib.FailStateLabel)
 
-	handler := smlib.NewAsyncStateMachineHandler(sm)
-	handler.AddEventHandler(filter.faultyFilter)
-	handler.AddEventHandler(filter.round0)
-	handler.AddEventHandler(filter.propFilter)
+	handler := handlers.NewHandlerCascade()
+	handler.AddHandler(filter.faultyFilter)
+	handler.AddHandler(filter.round0)
+	handler.AddHandler(filter.propFilter)
+	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("HigherLockedRoundProp", 3*time.Minute, handler)
 	testcase.SetupFunc(higherPropSetup)

@@ -17,6 +17,10 @@ func (p *Part) Contains(replica types.ReplicaID) bool {
 	return p.ReplicaSet.Exists(replica)
 }
 
+func (p *Part) ContainsVal(addr []byte) bool {
+	return p.ReplicaSet.ExistsVal(addr)
+}
+
 func (p *Part) Size() int {
 	return p.ReplicaSet.Size()
 }
@@ -64,13 +68,13 @@ type GenericPartitioner struct {
 	allReplicas *types.ReplicaStore
 }
 
-func NewGenericParititioner(replicasStore *types.ReplicaStore) *GenericPartitioner {
+func NewGenericPartitioner(replicasStore *types.ReplicaStore) *GenericPartitioner {
 	return &GenericPartitioner{
 		allReplicas: replicasStore,
 	}
 }
 
-func (g *GenericPartitioner) CreateParition(sizes []int, labels []string) (*Partition, error) {
+func (g *GenericPartitioner) CreatePartition(sizes []int, labels []string) (*Partition, error) {
 	if len(sizes) != len(labels) {
 		return nil, errors.New("sizes and labels should be of same length")
 	}
@@ -94,81 +98,12 @@ func (g *GenericPartitioner) CreateParition(sizes []int, labels []string) (*Part
 		part := parts[curIndex]
 		size := sizes[curIndex]
 		if part.Size() < size {
-			part.ReplicaSet.Add(r.ID)
+			part.ReplicaSet.Add(r)
 		} else {
 			curIndex++
 			part := parts[curIndex]
-			part.ReplicaSet.Add(r.ID)
+			part.ReplicaSet.Add(r)
 		}
 	}
 	return NewPartition(parts...), nil
-}
-
-type StaticPartitioner struct {
-	allReplicas  *types.ReplicaStore
-	mtx          *sync.Mutex
-	partitionMap map[int]*Partition
-	faults       int
-}
-
-func NewStaticPartitioner(replicaStore *types.ReplicaStore, faults int) *StaticPartitioner {
-	return &StaticPartitioner{
-		allReplicas:  replicaStore,
-		mtx:          new(sync.Mutex),
-		partitionMap: make(map[int]*Partition),
-		faults:       faults,
-	}
-}
-
-func (p *StaticPartitioner) NewPartition(round int) {
-	// Strategy to choose the next partition comes here
-
-	p.mtx.Lock()
-	_, ok := p.partitionMap[round]
-	prev, prevOk := p.partitionMap[round-1]
-	p.mtx.Unlock()
-	if ok {
-		return
-	}
-
-	// Right now just pick the previous partition
-	if prevOk {
-		p.mtx.Lock()
-		p.partitionMap[round] = prev
-		p.mtx.Unlock()
-		return
-	}
-
-	honestDelayed := &Part{
-		Label:      "honestDelayed",
-		ReplicaSet: NewReplicaSet(),
-	}
-	faulty := &Part{
-		Label:      "faulty",
-		ReplicaSet: NewReplicaSet(),
-	}
-	rest := &Part{
-		Label:      "rest",
-		ReplicaSet: NewReplicaSet(),
-	}
-	for _, r := range p.allReplicas.Iter() {
-		if honestDelayed.Size() == 0 {
-			honestDelayed.ReplicaSet.Add(r.ID)
-		} else if faulty.Size() < p.faults {
-			faulty.ReplicaSet.Add(r.ID)
-		} else {
-			rest.ReplicaSet.Add(r.ID)
-		}
-	}
-	partition := NewPartition(honestDelayed, faulty, rest)
-	p.mtx.Lock()
-	p.partitionMap[round] = partition
-	p.mtx.Unlock()
-}
-
-func (p *StaticPartitioner) GetPartition(round int) (*Partition, bool) {
-	p.mtx.Lock()
-	defer p.mtx.Unlock()
-	partition, ok := p.partitionMap[round]
-	return partition, ok
 }

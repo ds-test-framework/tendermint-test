@@ -5,6 +5,7 @@ import (
 
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
@@ -12,27 +13,29 @@ import (
 
 type testCaseOneFilters struct{}
 
-func (t testCaseOneFilters) faultyReplicaFilter(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (t testCaseOneFilters) faultyReplicaFilter(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
 	u := commonUtil{}
-	if u.isFaultyVote(c.Context, tMsg) {
-		return []*types.Message{u.changeFultyVote(c.Context, tMsg)}, true
+	if u.isFaultyVote(e, c, tMsg) {
+		return []*types.Message{u.changeFultyVote(e, c, message, tMsg)}, true
 	}
 	return []*types.Message{}, false
 }
 
-func (testCaseOneFilters) Round0(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (testCaseOneFilters) Round0(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
 
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	if round == -1 {
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{message}, true
 	}
 	if round != 0 {
 		return []*types.Message{}, false
@@ -44,7 +47,7 @@ func (testCaseOneFilters) Round0(c *smlib.Context) ([]*types.Message, bool) {
 			c.Vars.Set("oldProposal", blockID)
 		}
 	case util.Prevote:
-		partition := getReplicaPartition(c.Context)
+		partition := getReplicaPartition(c)
 		honestDelayed, _ := partition.GetPart("honestDelayed")
 
 		if honestDelayed.Contains(tMsg.From) {
@@ -55,34 +58,33 @@ func (testCaseOneFilters) Round0(c *smlib.Context) ([]*types.Message, bool) {
 			}
 
 			delayedPrevotes := delayedPrevotesI.([]string)
-			delayedPrevotes = append(delayedPrevotes, tMsg.SchedulerMessage.ID)
+			delayedPrevotes = append(delayedPrevotes, message.ID)
 			c.Vars.Set("delayedPrevotes", delayedPrevotes)
 			return []*types.Message{}, true
 		}
 	}
-	return []*types.Message{tMsg.SchedulerMessage}, true
+	return []*types.Message{message}, true
 }
 
-func (t testCaseOneFilters) Round1(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (t testCaseOneFilters) Round1(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
 
-	messageID := tMsg.SchedulerMessage.ID
-
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	if round == -1 {
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{message}, true
 	} else if round != 1 {
 		return []*types.Message{}, false
 	}
-	partition := getReplicaPartition(c.Context)
+	partition := getReplicaPartition(c)
 	honestDelayed, _ := partition.GetPart("honestDelayed")
 	replica, _ := c.Replicas.Get(tMsg.From)
 
 	if tMsg.Type == util.Proposal {
-		t.recordDelayedProposal(c.Context, messageID)
+		t.recordDelayedProposal(c, message.ID)
 		return []*types.Message{}, true
 	} else if tMsg.Type == util.Prevote && honestDelayed.Contains(tMsg.From) && util.IsVoteFrom(tMsg, replica) {
 		voteBlockID, ok := util.GetVoteBlockIDS(tMsg)
@@ -97,7 +99,7 @@ func (t testCaseOneFilters) Round1(c *smlib.Context) ([]*types.Message, bool) {
 			}
 		}
 	}
-	return []*types.Message{tMsg.SchedulerMessage}, true
+	return []*types.Message{message}, true
 }
 
 func (testCaseOneFilters) recordDelayedProposal(c *testlib.Context, id string) {
@@ -111,15 +113,16 @@ func (testCaseOneFilters) recordDelayedProposal(c *testlib.Context, id string) {
 	c.Vars.Set("delayedProposals", delayedProposal)
 }
 
-func (testCaseOneFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
+func (testCaseOneFilters) Round2(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
 
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	if round == -1 {
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{message}, true
 	}
 	if round != 2 {
 		return []*types.Message{}, false
@@ -143,7 +146,7 @@ func (testCaseOneFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 			}
 		}
 	case util.Prevote:
-		partition := getReplicaPartition(c.Context)
+		partition := getReplicaPartition(c)
 		honestDelayed, _ := partition.GetPart("honestDelayed")
 		replica, _ := c.Replicas.Get(tMsg.From)
 
@@ -161,14 +164,14 @@ func (testCaseOneFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 			}
 		}
 	}
-	return []*types.Message{tMsg.SchedulerMessage}, true
+	return []*types.Message{message}, true
 }
 
 func testCaseOneSetup(c *testlib.Context) error {
 	faults := int((c.Replicas.Cap() - 1) / 3)
 	partition, _ := util.
-		NewGenericParititioner(c.Replicas).
-		CreateParition([]int{faults, 1, 2 * faults}, []string{"faulty", "honestDelayed", "rest"})
+		NewGenericPartitioner(c.Replicas).
+		CreatePartition([]int{faults, 1, 2 * faults}, []string{"faulty", "honestDelayed", "rest"})
 	c.Vars.Set("partition", partition)
 	c.Vars.Set("faults", faults)
 	c.Logger().With(log.LogParams{
@@ -184,8 +187,8 @@ func getReplicaPartition(c *testlib.Context) *util.Partition {
 
 type testCaseOneCond struct{}
 
-func (t testCaseOneCond) commitNewCond(c *smlib.Context) bool {
-	cEventType := c.CurEvent.Type
+func (t testCaseOneCond) commitNewCond(e *types.Event, c *testlib.Context) bool {
+	cEventType := e.Type
 	switch cEventType := cEventType.(type) {
 	case *types.GenericEventType:
 		if cEventType.T != "Committing block" {
@@ -212,8 +215,8 @@ func (t testCaseOneCond) commitNewCond(c *smlib.Context) bool {
 	return false
 }
 
-func (t testCaseOneCond) commitOldCond(c *smlib.Context) bool {
-	cEventType := c.CurEvent.Type
+func (t testCaseOneCond) commitOldCond(e *types.Event, c *testlib.Context) bool {
+	cEventType := e.Type
 	switch cEventType := cEventType.(type) {
 	case *types.GenericEventType:
 		if cEventType.T != "Committing block" {
@@ -239,18 +242,21 @@ func (t testCaseOneCond) commitOldCond(c *smlib.Context) bool {
 	return false
 }
 
-func (testCaseOneFilters) round0Message(c *smlib.Context) bool {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (testCaseOneFilters) round0Message(e *types.Event, c *testlib.Context) bool {
+	tMsg, ok := util.GetMessageFromEvent(e, c)
+	if !ok {
 		return false
 	}
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	return round == 0
 }
 
-func (testCaseOneFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, _ := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	messageID := tMsg.SchedulerMessage.ID
+func (testCaseOneFilters) round0(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
+		return []*types.Message{}, false
+	}
 
 	switch tMsg.Type {
 	case util.Proposal:
@@ -258,7 +264,7 @@ func (testCaseOneFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
 			c.Vars.Set("oldProposal", blockID)
 		}
 	case util.Prevote:
-		partition := getReplicaPartition(c.Context)
+		partition := getReplicaPartition(c)
 		honestDelayed, _ := partition.GetPart("honestDelayed")
 
 		if honestDelayed.Contains(tMsg.From) {
@@ -269,12 +275,12 @@ func (testCaseOneFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
 			}
 
 			delayedPrevotes := delayedPrevotesI.([]string)
-			delayedPrevotes = append(delayedPrevotes, messageID)
+			delayedPrevotes = append(delayedPrevotes, message.ID)
 			c.Vars.Set("delayedPrevotes", delayedPrevotes)
 			return []*types.Message{}, true
 		}
 	}
-	return []*types.Message{tMsg.SchedulerMessage}, true
+	return []*types.Message{message}, true
 }
 
 func One() *testlib.TestCase {
@@ -293,12 +299,13 @@ func One() *testlib.TestCase {
 	round2.On(cond.commitNewCond, smlib.SuccessStateLabel)
 	round2.On(cond.commitOldCond, smlib.FailStateLabel)
 
-	handler := smlib.NewAsyncStateMachineHandler(stateMachine)
-	handler.AddEventHandler(filters.faultyReplicaFilter)
-	// handler.AddEventHandler(smlib.If(filters.round0Message).Then(filters.round0))
-	handler.AddEventHandler(filters.Round0)
-	handler.AddEventHandler(filters.Round1)
-	handler.AddEventHandler(filters.Round2)
+	handler := handlers.NewHandlerCascade()
+	handler.AddHandler(filters.faultyReplicaFilter)
+	// handler.AddHandler(smlib.If(filters.round0Message).Then(filters.round0))
+	handler.AddHandler(filters.Round0)
+	handler.AddHandler(filters.Round1)
+	handler.AddHandler(filters.Round2)
+	handler.AddHandler(smlib.NewAsyncStateMachineHandler(stateMachine))
 
 	testcase := testlib.NewTestCase("LockedValueOne", 50*time.Second, handler)
 	testcase.SetupFunc(testCaseOneSetup)

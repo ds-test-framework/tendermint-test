@@ -5,6 +5,7 @@ import (
 
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
@@ -12,15 +13,15 @@ import (
 
 type testCaseTwoFilters struct{}
 
-func (testCaseTwoFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
+func (testCaseTwoFilters) Round2(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
 
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
+	tMsg, err := util.GetMessageFromEvent(e, c)
 	if err != nil {
 		return []*types.Message{}, false
 	}
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 	if round == -1 {
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{tMsg.Message}, true
 	}
 	if round != 2 {
 		return []*types.Message{}, false
@@ -33,7 +34,7 @@ func (testCaseTwoFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 			c.Vars.Set("newProposal", blockID)
 		}
 	case util.Prevote:
-		partition := getReplicaPartition(c.Context)
+		partition := getReplicaPartition(c)
 		honestDelayed, _ := partition.GetPart("honestDelayed")
 		replica, _ := c.Replicas.Get(tMsg.From)
 
@@ -51,7 +52,7 @@ func (testCaseTwoFilters) Round2(c *smlib.Context) ([]*types.Message, bool) {
 			}
 		}
 	}
-	return []*types.Message{tMsg.SchedulerMessage}, true
+	return []*types.Message{tMsg.Message}, true
 }
 
 func Two() *testlib.TestCase {
@@ -71,11 +72,12 @@ func Two() *testlib.TestCase {
 	round2.On(tOneCond.commitNewCond, smlib.SuccessStateLabel)
 	round2.On(tOneCond.commitOldCond, smlib.FailStateLabel)
 
-	handler := smlib.NewAsyncStateMachineHandler(stateMachine)
-	handler.AddEventHandler(tOneFilters.faultyReplicaFilter)
-	handler.AddEventHandler(tOneFilters.Round0)
-	handler.AddEventHandler(tOneFilters.Round1)
-	handler.AddEventHandler(filters.Round2)
+	handler := handlers.NewHandlerCascade()
+	handler.AddHandler(tOneFilters.faultyReplicaFilter)
+	handler.AddHandler(tOneFilters.Round0)
+	handler.AddHandler(tOneFilters.Round1)
+	handler.AddHandler(filters.Round2)
+	handler.AddHandler(smlib.NewAsyncStateMachineHandler(stateMachine))
 
 	testcase := testlib.NewTestCase("LockedValueOne", 50*time.Second, handler)
 	testcase.SetupFunc(testCaseOneSetup)

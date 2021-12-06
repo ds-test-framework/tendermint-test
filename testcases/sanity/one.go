@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/ds-test-framework/scheduler/testlib"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
+	"github.com/ds-test-framework/tendermint-test/common"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
 
@@ -42,15 +44,8 @@ func setTestCaseOneVoteCount(c *testlib.Context, v *testCaseOneVoteCount, round 
 	c.Vars.Set("voteCount", voteCount)
 }
 
-func testCaseOneSetup(c *testlib.Context) error {
-	faults := int((c.Replicas.Cap() - 1) / 3)
-	partitioner := util.NewStaticPartitioner(c.Replicas, faults)
-	partitioner.NewPartition(0)
-	partition, _ := partitioner.GetPartition(0)
-	c.Vars.Set("partition", partition)
-	c.Vars.Set("faults", faults)
+func setupVoteCount(c *testlib.Context) {
 	c.Vars.Set("voteCount", make(map[int]*testCaseOneVoteCount))
-	return nil
 }
 
 func getPartition(c *testlib.Context) *util.Partition {
@@ -60,57 +55,28 @@ func getPartition(c *testlib.Context) *util.Partition {
 
 type testCaseOneFilters struct{}
 
-func (testCaseOneFilters) faultyFilter(c *smlib.Context) ([]*types.Message, bool) {
-
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
+func (testCaseOneFilters) round0(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
-	if tMsg.Type != util.Prevote && tMsg.Type != util.Precommit {
-		return []*types.Message{}, false
-	}
-
-	faulty, _ := getPartition(c.Context).GetPart("faulty")
-
-	if faulty.Contains(tMsg.From) {
-		replica, _ := c.Replicas.Get(tMsg.From)
-		newVote, err := util.ChangeVoteToNil(replica, tMsg)
-		if err != nil {
-			return []*types.Message{tMsg.SchedulerMessage}, true
-		}
-		newMsgB, err := util.Marshal(newVote)
-		if err != nil {
-			return []*types.Message{tMsg.SchedulerMessage}, true
-		}
-		return []*types.Message{c.NewMessage(tMsg.SchedulerMessage, newMsgB)}, true
-		// } else if faulty.Contains(tMsg.To) {
-		// 	// Deliver everything to faulty because we need it to advance!
-		// 	return []*types.Message{tMsg.SchedulerMessage}, true
-	}
-	return []*types.Message{}, false
-}
-
-func (testCaseOneFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
-		return []*types.Message{}, false
-	}
-	_, round := util.ExtractHR(tMsg)
+	round := tMsg.Round()
 
 	// 1. Only keep count of messages to deliver in round 0
 	if round != 0 {
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{message}, true
 	}
 
 	if tMsg.Type != util.Precommit {
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		return []*types.Message{message}, true
 	}
 
-	votes := getTestCaseOneVoteCount(c.Context, round)
-	faulty, _ := getPartition(c.Context).GetPart("faulty")
+	votes := getTestCaseOneVoteCount(c, round)
+	faulty, _ := getPartition(c).GetPart("faulty")
 
 	faults, _ := c.Vars.GetInt("faults")
-	_, ok := votes.delivered[string(tMsg.Type)]
+	_, ok = votes.delivered[string(tMsg.Type)]
 	if !ok {
 		votes.delivered[string(tMsg.Type)] = make(map[string]int)
 	}
@@ -125,66 +91,61 @@ func (testCaseOneFilters) round0(c *smlib.Context) ([]*types.Message, bool) {
 		// In total it receives 2f votes and hence does not make progress until it hears 2f+1 votes of the next round
 		if curDelivered < 2*faults-1 {
 			votes.delivered[string(tMsg.Type)][string(tMsg.To)] = curDelivered + 1
-			setTestCaseOneVoteCount(c.Context, votes, round)
-			return []*types.Message{tMsg.SchedulerMessage}, true
+			setTestCaseOneVoteCount(c, votes, round)
+			return []*types.Message{message}, true
 		}
 	} else if curDelivered <= 2*faults-1 {
 		votes.delivered[string(tMsg.Type)][string(tMsg.To)] = curDelivered + 1
-		setTestCaseOneVoteCount(c.Context, votes, round)
-		return []*types.Message{tMsg.SchedulerMessage}, true
+		setTestCaseOneVoteCount(c, votes, round)
+		return []*types.Message{message}, true
 	}
 
 	return []*types.Message{}, true
 }
 
-type testCaseOneCond struct{}
-
-func (t testCaseOneCond) quorumCond(c *smlib.Context) bool {
-
-	tMsg, err := util.GetMessageFromSendEvent(c.CurEvent, c.MessagePool)
-	if err != nil {
-		return false
-	}
-	faulty, _ := getPartition(c.Context).GetPart("faulty")
-	faults, _ := c.Vars.GetInt("faults")
-	if faulty.Contains(tMsg.From) {
-		return false
-	}
-
-	if tMsg.Type != util.Prevote {
-		return false
-	}
-	_, round := util.ExtractHR(tMsg)
-	blockID, _ := util.GetVoteBlockIDS(tMsg)
-
-	votes := getTestCaseOneVoteCount(c.Context, round)
-	_, ok := votes.recorded[blockID]
-	if !ok {
-		votes.recorded[blockID] = make(map[string]bool)
-	}
-	votes.recorded[blockID][string(tMsg.From)] = true
-	setTestCaseOneVoteCount(c.Context, votes, round)
-
-	if round != 0 {
-		roundZeroVotes := getTestCaseOneVoteCount(c.Context, 0)
-
-		ok, err = t.findIntersection(votes.recorded, roundZeroVotes.recorded, faults)
-		if err == errDifferentQuorum {
-			c.Abort()
+func quorumCond() common.MessageCondition {
+	return func(message *util.TMessage, c *testlib.Context) bool {
+		faulty, _ := getPartition(c).GetPart("faulty")
+		faults, _ := c.Vars.GetInt("faults")
+		if faulty.Contains(message.From) {
+			return false
 		}
-		if ok {
-			c.Vars.Set("QuorumIntersection", true)
+
+		if message.Type != util.Prevote {
+			return false
 		}
-		return ok
+		round := message.Round()
+		blockID, _ := util.GetVoteBlockIDS(message)
+
+		votes := getTestCaseOneVoteCount(c, round)
+		_, ok := votes.recorded[blockID]
+		if !ok {
+			votes.recorded[blockID] = make(map[string]bool)
+		}
+		votes.recorded[blockID][string(message.From)] = true
+		setTestCaseOneVoteCount(c, votes, round)
+
+		if round != 0 {
+			roundZeroVotes := getTestCaseOneVoteCount(c, 0)
+
+			ok, err := findIntersection(votes.recorded, roundZeroVotes.recorded, faults)
+			if err == errDifferentQuorum {
+				c.Abort()
+			}
+			if ok {
+				c.Vars.Set("QuorumIntersection", true)
+			}
+			return ok
+		}
+		return false
 	}
-	return false
 }
 
 var (
 	errDifferentQuorum = errors.New("different proposal")
 )
 
-func (testCaseOneCond) findIntersection(new, old map[string]map[string]bool, faults int) (bool, error) {
+func findIntersection(new, old map[string]map[string]bool, faults int) (bool, error) {
 	quorumProposal := ""
 	quorum := make(map[string]bool)
 	for k, v := range new {
@@ -220,18 +181,22 @@ func (testCaseOneCond) findIntersection(new, old map[string]map[string]bool, fau
 // 	2. Check that in the new round there is a quorum intersection of f+1
 // 		2.1 Record the votes on the proposal to check for quorum intersection (Proposal should be same in both rounds)
 func OneTestCase() *testlib.TestCase {
-	cond := testCaseOneCond{}
 	filters := testCaseOneFilters{}
 
 	sm := smlib.NewStateMachine()
-	sm.Builder().On(cond.quorumCond, smlib.SuccessStateLabel)
+	sm.Builder().On(quorumCond().AsFunc(), smlib.SuccessStateLabel)
 
-	handler := smlib.NewAsyncStateMachineHandler(sm)
-	handler.AddEventHandler(filters.faultyFilter)
-	handler.AddEventHandler(filters.round0)
+	handler := handlers.NewHandlerCascade()
+	handler.AddHandler(
+		handlers.If(
+			handlers.IsMessageSend().And(common.IsVoteFromFaulty().AsFunc()),
+		).Then(common.ChangeVoteToNil),
+	)
+	handler.AddHandler(filters.round0)
+	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("QuorumIntersection", 50*time.Second, handler)
-	testcase.SetupFunc(testCaseOneSetup)
+	testcase.SetupFunc(common.Setup(setupVoteCount))
 	testcase.AssertFn(func(c *testlib.Context) bool {
 		i, ok := c.Vars.GetBool("QuorumIntersection")
 		return ok && i
