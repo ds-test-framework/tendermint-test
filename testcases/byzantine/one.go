@@ -5,7 +5,6 @@ import (
 
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
@@ -21,8 +20,8 @@ func getRoundCond(toRound int) handlers.Condition {
 			return false
 		}
 
-		tMsg, err := util.Unmarshal(message.Data)
-		if err != nil {
+		tMsg, ok := util.GetParsedMessage(message)
+		if !ok {
 			return false
 		}
 		round := tMsg.Round()
@@ -64,13 +63,14 @@ func changeBlockParts(e *types.Event, c *testlib.Context) ([]*types.Message, boo
 }
 
 func One() *testlib.TestCase {
-	stateMachine := smlib.NewStateMachine()
+	stateMachine := handlers.NewStateMachine()
 
-	h := handlers.NewHandlerCascade()
+	h := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(stateMachine),
+	)
 	h.AddHandler(changeProposal)
 	h.AddHandler(changeVote)
 	h.AddHandler(changeBlockParts)
-	h.AddHandler(smlib.NewAsyncStateMachineHandler(stateMachine))
 
 	testcase := testlib.NewTestCase(
 		"CompetingProposals",

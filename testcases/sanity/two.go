@@ -7,7 +7,6 @@ import (
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/common"
 	"github.com/ds-test-framework/tendermint-test/util"
@@ -63,33 +62,34 @@ func TwoTestCase() *testlib.TestCase {
 
 	filters := twoFilters{}
 
-	sm := smlib.NewStateMachine()
+	sm := handlers.NewStateMachine()
 	start := sm.Builder()
-	start.On(common.IsCommit, smlib.FailStateLabel)
+	start.On(common.IsCommit, handlers.FailStateLabel)
 	round1 := start.On(common.RoundReached(1), "round1")
-	round1.On(common.IsCommit, smlib.SuccessStateLabel)
-	round1.On(common.RoundReached(2), smlib.FailStateLabel)
+	round1.On(common.IsCommit, handlers.SuccessStateLabel)
+	round1.On(common.RoundReached(2), handlers.FailStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(sm),
+	)
 	handler.AddHandler(
-		handlers.If(handlers.IsMessageSend().And(common.IsVoteFromFaulty().AsFunc())).
+		handlers.If(handlers.IsMessageSend().And(common.IsVoteFromFaulty())).
 			Then(common.ChangeVoteToNil),
 	)
 	handler.AddHandler(
 		handlers.If(
 			handlers.IsMessageSend().
-				And(common.IsMessageFromRound(0).
-					And(common.IsMessageType(util.Precommit)).AsFunc()),
+				And(common.IsMessageFromRound(0)).
+				And(common.IsMessageType(util.Precommit)),
 		).Then(filters.countAndDeliver),
 	)
 	handler.AddHandler(
 		handlers.If(
 			handlers.IsMessageSend().
-				And(common.IsMessageFromRound(1).
-					And(common.IsMessageType(util.Proposal)).AsFunc()),
+				And(common.IsMessageFromRound(1)).
+				And(common.IsMessageType(util.Proposal)),
 		).Then(filters.changeProposal),
 	)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("WrongProposal", 30*time.Second, handler)
 	testcase.SetupFunc(common.Setup())
@@ -111,3 +111,11 @@ func TwoTestCase() *testlib.TestCase {
 
 	return testcase
 }
+
+// TODO:
+
+// Change countAndDeliver to mention drops when count is exceeded
+// Count as a parameter
+// Count should be part of condition
+
+// changeProposal -> changeProposalToNil

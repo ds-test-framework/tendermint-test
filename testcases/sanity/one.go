@@ -6,7 +6,6 @@ import (
 
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/common"
 	"github.com/ds-test-framework/tendermint-test/util"
@@ -103,8 +102,12 @@ func (testCaseOneFilters) round0(e *types.Event, c *testlib.Context) ([]*types.M
 	return []*types.Message{}, true
 }
 
-func quorumCond() common.MessageCondition {
-	return func(message *util.TMessage, c *testlib.Context) bool {
+func quorumCond() handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		message, ok := util.GetMessageFromEvent(e, c)
+		if !ok {
+			return false
+		}
 		faulty, _ := getPartition(c).GetPart("faulty")
 		faults, _ := c.Vars.GetInt("faults")
 		if faulty.Contains(message.From) {
@@ -118,7 +121,7 @@ func quorumCond() common.MessageCondition {
 		blockID, _ := util.GetVoteBlockIDS(message)
 
 		votes := getTestCaseOneVoteCount(c, round)
-		_, ok := votes.recorded[blockID]
+		_, ok = votes.recorded[blockID]
 		if !ok {
 			votes.recorded[blockID] = make(map[string]bool)
 		}
@@ -183,17 +186,18 @@ func findIntersection(new, old map[string]map[string]bool, faults int) (bool, er
 func OneTestCase() *testlib.TestCase {
 	filters := testCaseOneFilters{}
 
-	sm := smlib.NewStateMachine()
-	sm.Builder().On(quorumCond().AsFunc(), smlib.SuccessStateLabel)
+	sm := handlers.NewStateMachine()
+	sm.Builder().On(quorumCond(), handlers.SuccessStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(sm),
+	)
 	handler.AddHandler(
 		handlers.If(
-			handlers.IsMessageSend().And(common.IsVoteFromFaulty().AsFunc()),
+			handlers.IsMessageSend().And(common.IsVoteFromFaulty()),
 		).Then(common.ChangeVoteToNil),
 	)
 	handler.AddHandler(filters.round0)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("QuorumIntersection", 50*time.Second, handler)
 	testcase.SetupFunc(common.Setup(setupVoteCount))

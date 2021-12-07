@@ -4,8 +4,7 @@ import (
 	"time"
 
 	"github.com/ds-test-framework/scheduler/testlib"
-	handlers "github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
+	"github.com/ds-test-framework/scheduler/testlib/handlers"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
@@ -43,12 +42,13 @@ func DummyTestCase() *testlib.TestCase {
 }
 
 func DummyTestCaseStateMachine() *testlib.TestCase {
-	sm := smlib.NewStateMachine()
-	sm.Builder().On(cond, smlib.SuccessStateLabel)
+	sm := handlers.NewStateMachine()
+	sm.Builder().On(cond, handlers.SuccessStateLabel)
 
-	h := handlers.NewHandlerCascade()
+	h := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(sm),
+	)
 	h.AddHandler(handler)
-	h.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("DummySM", 30*time.Second, h)
 	return testcase

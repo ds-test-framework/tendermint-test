@@ -6,7 +6,6 @@ import (
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
@@ -15,13 +14,14 @@ type testCaseTwoFilters struct{}
 
 func (testCaseTwoFilters) Round2(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
 
-	tMsg, err := util.GetMessageFromEvent(e, c)
-	if err != nil {
+	message, _ := c.GetMessage(e)
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
 	round := tMsg.Round()
 	if round == -1 {
-		return []*types.Message{tMsg.Message}, true
+		return []*types.Message{message}, true
 	}
 	if round != 2 {
 		return []*types.Message{}, false
@@ -52,7 +52,7 @@ func (testCaseTwoFilters) Round2(e *types.Event, c *testlib.Context) ([]*types.M
 			}
 		}
 	}
-	return []*types.Message{tMsg.Message}, true
+	return []*types.Message{message}, true
 }
 
 func Two() *testlib.TestCase {
@@ -62,22 +62,23 @@ func Two() *testlib.TestCase {
 	tOneFilters := testCaseOneFilters{}
 	filters := testCaseTwoFilters{}
 
-	stateMachine := smlib.NewStateMachine()
+	stateMachine := handlers.NewStateMachine()
 	builder := stateMachine.Builder()
 	round2 := builder.
 		On(commonCond.valueLockedCond, "LockedValue").
 		On(commonCond.roundReached(1), "Round1").
 		On(commonCond.roundReached(2), "Round2")
 
-	round2.On(tOneCond.commitNewCond, smlib.SuccessStateLabel)
-	round2.On(tOneCond.commitOldCond, smlib.FailStateLabel)
+	round2.On(tOneCond.commitNewCond, handlers.SuccessStateLabel)
+	round2.On(tOneCond.commitOldCond, handlers.FailStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(stateMachine),
+	)
 	handler.AddHandler(tOneFilters.faultyReplicaFilter)
 	handler.AddHandler(tOneFilters.Round0)
 	handler.AddHandler(tOneFilters.Round1)
 	handler.AddHandler(filters.Round2)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(stateMachine))
 
 	testcase := testlib.NewTestCase("LockedValueOne", 50*time.Second, handler)
 	testcase.SetupFunc(testCaseOneSetup)

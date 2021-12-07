@@ -6,7 +6,6 @@ import (
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
@@ -280,25 +279,26 @@ func Three() *testlib.TestCase {
 	cond := testCaseThreeCond{}
 	commonConds := commonCond{}
 
-	sm := smlib.NewStateMachine()
+	sm := handlers.NewStateMachine()
 	relocked := sm.Builder().
 		On(commonConds.valueLockedCond, stateLockedValue).
 		On(commonConds.roundReached(1), stateRound1).
 		On(cond.diffProposal, stateForceRelock)
 
-	relocked.On(cond.oldVote, smlib.FailStateLabel)
-	relocked.On(cond.newVote, smlib.SuccessStateLabel)
+	relocked.On(cond.oldVote, handlers.FailStateLabel)
+	relocked.On(cond.newVote, handlers.SuccessStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(sm),
+	)
 	handler.AddHandler(filters.faultyVoteFilter)
 	handler.AddHandler(filters.round0)
 	handler.AddHandler(filters.higherRound)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("ChangeLockedValue", 70*time.Second, handler)
 	testcase.SetupFunc(testCaseThreeSetup)
 	testcase.AssertFn(func(c *testlib.Context) bool {
-		return sm.CurState().Is(smlib.SuccessStateLabel)
+		return sm.InSuccessState()
 	})
 	return testcase
 }

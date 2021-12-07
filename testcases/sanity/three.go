@@ -7,7 +7,6 @@ import (
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/common"
 	"github.com/ds-test-framework/tendermint-test/util"
@@ -60,42 +59,43 @@ func threeSetup(c *testlib.Context) {
 func ThreeTestCase() *testlib.TestCase {
 	filters := threeFilters{}
 
-	sm := smlib.NewStateMachine()
+	sm := handlers.NewStateMachine()
 	start := sm.Builder()
-	start.On(common.IsCommit, smlib.FailStateLabel)
+	start.On(common.IsCommit, handlers.FailStateLabel)
 	round1 := start.On(common.RoundReached(1), "round1")
-	round1.On(common.IsCommit, smlib.FailStateLabel)
+	round1.On(common.IsCommit, handlers.FailStateLabel)
 	round2 := round1.On(common.RoundReached(2), "round2")
-	round2.On(common.IsCommit, smlib.SuccessStateLabel)
+	round2.On(common.IsCommit, handlers.SuccessStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(sm),
+	)
 	handler.AddHandler(
 		handlers.If(
 			handlers.IsMessageSend().
-				And(common.IsVoteFromFaulty().AsFunc()),
+				And(common.IsVoteFromFaulty()),
 		).Then(common.ChangeVoteToNil),
 	)
 	handler.AddHandler(
 		handlers.If(handlers.IsMessageSend().
 			And(common.IsMessageFromRound(0).
 				And(common.IsToPart("toNotLock")).
-				And(common.IsMessageType(util.Prevote)).AsFunc()),
+				And(common.IsMessageType(util.Prevote))),
 		).Then(filters.countAndDeliver),
 	)
 	handler.AddHandler(
 		handlers.If(handlers.IsMessageSend().
-			And(common.IsMessageFromRound(0).
-				And(common.IsMessageType(util.Proposal)).AsFunc()),
+			And(common.IsMessageFromRound(0)).
+			And(common.IsMessageType(util.Proposal)),
 		).Then(filters.recordProposal),
 	)
 	handler.AddHandler(
 		handlers.If(
 			handlers.IsMessageSend().
-				And(common.IsMessageFromRound(1).
-					And(common.IsMessageType(util.Proposal)).AsFunc()),
+				And(common.IsMessageFromRound(1)).
+				And(common.IsMessageType(util.Proposal)),
 		).Then(handlers.DontDeliverMessage),
 	)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("LockedValueCheck", 30*time.Second, handler)
 	testcase.SetupFunc(common.Setup(threeSetup))

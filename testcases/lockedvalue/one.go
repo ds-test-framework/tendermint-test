@@ -6,7 +6,6 @@ import (
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
@@ -288,7 +287,7 @@ func One() *testlib.TestCase {
 	cond := testCaseOneCond{}
 	commonCond := commonCond{}
 
-	stateMachine := smlib.NewStateMachine()
+	stateMachine := handlers.NewStateMachine()
 
 	builder := stateMachine.Builder()
 	round2 := builder.
@@ -296,16 +295,16 @@ func One() *testlib.TestCase {
 		On(commonCond.roundReached(1), "Round1").
 		On(commonCond.roundReached(2), "Round2")
 
-	round2.On(cond.commitNewCond, smlib.SuccessStateLabel)
-	round2.On(cond.commitOldCond, smlib.FailStateLabel)
+	round2.On(cond.commitNewCond, handlers.SuccessStateLabel)
+	round2.On(cond.commitOldCond, handlers.FailStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(stateMachine),
+	)
 	handler.AddHandler(filters.faultyReplicaFilter)
-	// handler.AddHandler(smlib.If(filters.round0Message).Then(filters.round0))
 	handler.AddHandler(filters.Round0)
 	handler.AddHandler(filters.Round1)
 	handler.AddHandler(filters.Round2)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(stateMachine))
 
 	testcase := testlib.NewTestCase("LockedValueOne", 50*time.Second, handler)
 	testcase.SetupFunc(testCaseOneSetup)

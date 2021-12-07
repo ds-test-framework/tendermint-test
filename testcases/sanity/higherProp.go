@@ -6,7 +6,6 @@ import (
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 	ttypes "github.com/tendermint/tendermint/types"
@@ -305,26 +304,27 @@ func HigherProp() *testlib.TestCase {
 	cond := higherPropCond{}
 	commonCond := commonCond{}
 
-	sm := smlib.NewStateMachine()
+	sm := handlers.NewStateMachine()
 	diffProposalSeen := sm.Builder().
 		On(cond.valueLockedCond, "ValueLocked").
 		On(commonCond.roundReached(1), "Round1").
 		On(cond.diffPropSeen, "DiffProposal")
-	diffProposalSeen.On(cond.rOldVote, smlib.FailStateLabel)
+	diffProposalSeen.On(cond.rOldVote, handlers.FailStateLabel)
 	newPropSeen := diffProposalSeen.On(cond.newPropSeen, "DiffProposalReproposed")
-	newPropSeen.On(cond.hNewVote, smlib.SuccessStateLabel)
-	newPropSeen.On(cond.hOldVote, smlib.FailStateLabel)
+	newPropSeen.On(cond.hNewVote, handlers.SuccessStateLabel)
+	newPropSeen.On(cond.hOldVote, handlers.FailStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(sm),
+	)
 	handler.AddHandler(filter.faultyFilter)
 	handler.AddHandler(filter.round0)
 	handler.AddHandler(filter.propFilter)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("HigherLockedRoundProp", 3*time.Minute, handler)
 	testcase.SetupFunc(higherPropSetup)
 	testcase.AssertFn(func(c *testlib.Context) bool {
-		return sm.CurState().Success
+		return sm.InSuccessState()
 	})
 	return testcase
 }

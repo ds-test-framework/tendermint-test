@@ -6,7 +6,6 @@ import (
 
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
@@ -99,14 +98,15 @@ func filter_less_than_n_minus_f(e *types.Event, c *testlib.Context) ([]*types.Me
 
 func BlockingTestcase() *testlib.TestCase {
 
-	sm := smlib.NewStateMachine()
+	sm := handlers.NewStateMachine()
 	sm.Builder().
-		On(commit_or_round1, smlib.FailStateLabel)
+		On(commit_or_round1, handlers.FailStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(sm),
+	)
 	handler.AddHandler(filter_less_than_n_minus_f)
 	handler.AddHandler(deliverDelayedFilter)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
 
 	testcase := testlib.NewTestCase("BlockingTestCase", 30*time.Second, handler)
 	testcase.SetupFunc(setupFunc)

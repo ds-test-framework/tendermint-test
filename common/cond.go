@@ -14,14 +14,22 @@ func IsCommit(e *types.Event, _ *testlib.Context) bool {
 	return ok && eType.T == "Committing block"
 }
 
-func IsMessageFromRound(round int) MessageCondition {
-	return func(m *util.TMessage, c *testlib.Context) bool {
+func IsMessageFromRound(round int) handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		m, ok := util.GetMessageFromEvent(e, c)
+		if !ok {
+			return false
+		}
 		return m.Round() == round
 	}
 }
 
-func IsVoteFromPart(partS string) MessageCondition {
-	return func(m *util.TMessage, c *testlib.Context) bool {
+func IsVoteFromPart(partS string) handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		m, ok := util.GetMessageFromEvent(e, c)
+		if !ok {
+			return false
+		}
 		if m.Type != util.Precommit && m.Type != util.Prevote {
 			return false
 		}
@@ -42,7 +50,7 @@ func IsVoteFromPart(partS string) MessageCondition {
 	}
 }
 
-func IsVoteFromFaulty() MessageCondition {
+func IsVoteFromFaulty() handlers.Condition {
 	return IsVoteFromPart("faulty")
 }
 
@@ -55,8 +63,12 @@ func getPartition(c *testlib.Context) (*util.Partition, bool) {
 	return partition, ok
 }
 
-func IsFromPart(partS string) MessageCondition {
-	return func(m *util.TMessage, c *testlib.Context) bool {
+func IsFromPart(partS string) handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		m, ok := util.GetMessageFromEvent(e, c)
+		if !ok {
+			return false
+		}
 		partition, ok := getPartition(c)
 		if !ok {
 			return false
@@ -69,8 +81,12 @@ func IsFromPart(partS string) MessageCondition {
 	}
 }
 
-func IsToPart(partS string) MessageCondition {
-	return func(m *util.TMessage, c *testlib.Context) bool {
+func IsToPart(partS string) handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		m, ok := util.GetMessageFromEvent(e, c)
+		if !ok {
+			return false
+		}
 		partition, ok := getPartition(c)
 		if !ok {
 			return false
@@ -83,9 +99,17 @@ func IsToPart(partS string) MessageCondition {
 	}
 }
 
-func IsMessageType(t util.MessageType) MessageCondition {
-	return func(m *util.TMessage, c *testlib.Context) bool {
-		return m.Type == t
+func IsMessageType(t util.MessageType) handlers.Condition {
+	return func(e *types.Event, c *testlib.Context) bool {
+		message, ok := c.GetMessage(e)
+		if !ok {
+			return false
+		}
+		tMessage, ok := util.GetParsedMessage(message)
+		if !ok {
+			return false
+		}
+		return tMessage.Type == t
 	}
 }
 
@@ -105,8 +129,8 @@ func RoundReached(r int) handlers.Condition {
 		if !e.IsMessageSend() {
 			return false
 		}
-		message, err := util.GetMessageFromEvent(e, c)
-		if err != nil {
+		message, ok := util.GetMessageFromEvent(e, c)
+		if !ok {
 			return false
 		}
 		msgRound := message.Round()
@@ -122,40 +146,5 @@ func RoundReached(r int) handlers.Condition {
 		msgRoundCounter, _ := c.Vars.GetCounter(msgRoundKey)
 		msgRoundCounter.Incr()
 		return roundcounter.Value() == n
-	}
-}
-
-type MessageCondition func(*util.TMessage, *testlib.Context) bool
-
-func (m MessageCondition) AsFunc() handlers.Condition {
-	return func(e *types.Event, c *testlib.Context) bool {
-		_, ok := e.MessageID()
-		if !ok {
-			return false
-		}
-		message, err := util.GetMessageFromEvent(e, c)
-		if err != nil {
-			return false
-		}
-		message.Event = e
-		return m(message, c)
-	}
-}
-
-func (m MessageCondition) And(other MessageCondition) MessageCondition {
-	return func(t *util.TMessage, c *testlib.Context) bool {
-		return m(t, c) && other(t, c)
-	}
-}
-
-func (m MessageCondition) Or(other MessageCondition) MessageCondition {
-	return func(t *util.TMessage, c *testlib.Context) bool {
-		return m(t, c) || other(t, c)
-	}
-}
-
-func (m MessageCondition) Not() MessageCondition {
-	return func(t *util.TMessage, c *testlib.Context) bool {
-		return !m(t, c)
 	}
 }

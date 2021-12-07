@@ -6,7 +6,6 @@ import (
 	"github.com/ds-test-framework/scheduler/log"
 	"github.com/ds-test-framework/scheduler/testlib"
 	"github.com/ds-test-framework/scheduler/testlib/handlers"
-	smlib "github.com/ds-test-framework/scheduler/testlib/statemachine"
 	"github.com/ds-test-framework/scheduler/types"
 	"github.com/ds-test-framework/tendermint-test/util"
 )
@@ -25,52 +24,6 @@ func heightReached(height int) handlers.Condition {
 		return mHeight >= height
 	}
 }
-
-// type roundReachedCond struct {
-// 	replicas map[types.ReplicaID]int
-// 	lock     *sync.Mutex
-// 	round    int
-// }
-
-// func newRoundReachedCond(round int) *roundReachedCond {
-// 	return &roundReachedCond{
-// 		replicas: make(map[types.ReplicaID]int),
-// 		lock:     new(sync.Mutex),
-// 		round:    round,
-// 	}
-// }
-
-// func (r *roundReachedCond) Check(c *testlib.Context) bool {
-
-// 	if !c.CurEvent.IsMessageSend() {
-// 		return false
-// 	}
-// 	messageID, _ := c.CurEvent.MessageID()
-// 	message, ok := c.MessagePool.Get(messageID)
-// 	if !ok {
-// 		return false
-// 	}
-// 	tMsg, err := util.Unmarshal(message.Data)
-// 	if err != nil {
-// 		return false
-// 	}
-// 	_, round := util.ExtractHR(tMsg)
-
-// 	r.lock.Lock()
-// 	r.replicas[message.From] = round
-// 	r.lock.Unlock()
-
-// 	threshold := int(c.Replicas.Cap() * 2 / 3)
-// 	count := 0
-// 	r.lock.Lock()
-// 	for _, round := range r.replicas {
-// 		if round >= r.round {
-// 			count = count + 1
-// 		}
-// 	}
-// 	r.lock.Unlock()
-// 	return count >= threshold
-// }
 
 func roundReached(toRound int) handlers.Condition {
 	return func(e *types.Event, c *testlib.Context) bool {
@@ -184,9 +137,6 @@ func changeVoteFilter(height, round int) handlers.HandlerFunc {
 }
 
 func deliverDelayedFilter(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
-	// if c.StateMachine.CurState().Label != "deliverDelayed" {
-	// 	return []*types.Message{}, false
-	// }
 	if !e.IsMessageSend() {
 		return []*types.Message{}, true
 	}
@@ -210,16 +160,17 @@ func deliverDelayedFilter(e *types.Event, c *testlib.Context) ([]*types.Message,
 
 func OneTestcase(height, round int) *testlib.TestCase {
 
-	sm := smlib.NewStateMachine()
+	sm := handlers.NewStateMachine()
 	sm.Builder().
 		On(heightReached(height), "delayAndChangeVotes").
 		On(roundReached(round), "deliverDelayed").
-		On(noDelayedMessagesCond, smlib.SuccessStateLabel)
+		On(noDelayedMessagesCond, handlers.SuccessStateLabel)
 
-	handler := handlers.NewHandlerCascade()
+	handler := handlers.NewHandlerCascade(
+		handlers.WithStateMachine(sm),
+	)
 	handler.AddHandler(changeVoteFilter(height, round))
-	handler.AddHandler(deliverDelayedFilter)
-	handler.AddHandler(smlib.NewAsyncStateMachineHandler(sm))
+	handler.AddHandler(handlers.If(handlers.InState("deliverDelayed")).Then(deliverDelayedFilter))
 
 	testcase := testlib.NewTestCase("RoundSkipPrevote", 30*time.Second, handler)
 	testcase.SetupFunc(setupFunc)

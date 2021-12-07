@@ -19,7 +19,7 @@ func main() {
 
 	server, err := testlib.NewTestingServer(
 		&config.Config{
-			APIServerAddr: "10.208.7.82:7074",
+			APIServerAddr: "192.168.1.8:7074",
 			NumReplicas:   4,
 			LogConfig: config.LogConfig{
 				Path: "/tmp/tendermint/log/checker.log",
@@ -28,8 +28,8 @@ func main() {
 		&util.TMessageParser{},
 		[]*testlib.TestCase{
 			// testcases.DummyTestCase(),
-			// rskip.OneTestcase(1, 2),
-			rskip.BlockingTestcase(),
+			rskip.OneTestcase(1, 2),
+			// rskip.BlockingTestcase(),
 			// lockedvalue.One(),
 			// lockedvalue.Two(),
 			// lockedvalue.Three(),

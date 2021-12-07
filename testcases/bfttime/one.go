@@ -43,8 +43,8 @@ func changeVoteFilter(e *types.Event, c *testlib.Context) ([]*types.Message, boo
 		return []*types.Message{}, false
 	}
 
-	tMsg, err := util.Unmarshal(message.Data)
-	if err != nil {
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{message}, true
 	}
 

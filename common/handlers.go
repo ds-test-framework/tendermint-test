@@ -13,14 +13,18 @@ func ChangeVoteToNil(e *types.Event, c *testlib.Context) ([]*types.Message, bool
 	if !e.IsMessageSend() {
 		return []*types.Message{}, false
 	}
-	message, err := util.GetMessageFromEvent(e, c)
-	if err != nil {
+	message, ok := c.GetMessage(e)
+	if !ok {
 		return []*types.Message{}, false
 	}
-	if message.Type != util.Precommit && message.Type != util.Prevote {
+	tMsg, ok := util.GetParsedMessage(message)
+	if !ok {
 		return []*types.Message{}, false
 	}
-	valAddr, ok := util.GetVoteValidator(message)
+	if tMsg.Type != util.Precommit && tMsg.Type != util.Prevote {
+		return []*types.Message{}, false
+	}
+	valAddr, ok := util.GetVoteValidator(tMsg)
 	if !ok {
 		return []*types.Message{}, false
 	}
@@ -38,7 +42,7 @@ func ChangeVoteToNil(e *types.Event, c *testlib.Context) ([]*types.Message, bool
 	if replica == nil {
 		return []*types.Message{}, false
 	}
-	newVote, err := util.ChangeVoteToNil(replica, message)
+	newVote, err := util.ChangeVoteToNil(replica, tMsg)
 	if err != nil {
 		return []*types.Message{}, false
 	}
@@ -46,16 +50,16 @@ func ChangeVoteToNil(e *types.Event, c *testlib.Context) ([]*types.Message, bool
 	if err != nil {
 		return []*types.Message{}, false
 	}
-	return []*types.Message{c.NewMessage(message.Message, msgB)}, true
+	return []*types.Message{c.NewMessage(message, msgB)}, true
 }
 
 func RecordMessage(label string) handlers.HandlerFunc {
 	return func(e *types.Event, c *testlib.Context) ([]*types.Message, bool) {
-		message, err := util.GetMessageFromEvent(e, c)
-		if err != nil {
+		message, ok := c.GetMessage(e)
+		if !ok {
 			return []*types.Message{}, false
 		}
 		c.Vars.Set(label, message)
-		return []*types.Message{message.Message}, true
+		return []*types.Message{}, true
 	}
 }
